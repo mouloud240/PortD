@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS activity_logs;
+DROP TABLE IF EXISTS port_observations;
+DROP TABLE IF EXISTS ports;
+DROP TABLE IF EXISTS project_interns;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS interns;

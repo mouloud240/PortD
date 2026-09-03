@@ -4,7 +4,8 @@
 bin/
 tmp/
 prototype/
-agent_docs/
+agent_docs/*
+!agent_docs/database_schema.md
 .agent
 .claude
 .opencode

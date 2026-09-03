@@ -28,6 +28,7 @@ Project hub for Algérie Télécom internships. Authenticated admins and interns
 
 ```sh
 cp .env.example .env
+just migrate-up
 go run ./cmd/portd
 ```
 
@@ -50,14 +51,24 @@ The source architecture is documented in [agent_docs/System_overview.svg](agent_
 
 ## Development
 
+- Generate typed database code: `just generate`
+- Create empty migration files: `just create-migration add_projects`
+- Apply pending SQLite migrations: `just migrate-up`
 - Format: `gofmt -w .`
 - Vet: `go vet ./...`
-- Test: `go test ./...`
+- Test: `just test`
 - SQL lives in `.sql` files; use `sqlc` to generate typed Go. Do not hand-write database access in handlers.
 - Test external side effects (Caddy, process execution) through interfaces/fakes.
+
+`PORTD_DB_PATH` controls the local SQLite database path and defaults to
+`tmp/portd.db`. Migrations are applied explicitly with `just migrate-up`; the
+server does not modify the database schema during startup. The `Justfile`
+expects `just` and `sqlc` to be installed, and runs the migration CLI through
+`go run`.
 
 ## Documentation
 
 - [Product requirements](agent_docs/prd.md) — detailed flows, data model, and acceptance criteria.
+- [Database schema](agent_docs/database_schema.md) — current tables, relationships, constraints, and migration workflow for onboarding.
 - [Agent guide](agent.md) — engineering rules, system model, and verification expectations.
 - [Prototype](prototype/README.md) — frontend-only reference screens.
