@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -11,16 +12,29 @@ import (
 	"time"
 
 	"github.com/portd/internal/app"
+	"github.com/portd/internal/auth"
 	"github.com/portd/internal/config"
+	"github.com/portd/internal/db/generated"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	cfg := config.Load()
+	database, err := sql.Open("sqlite", cfg.DBPath)
+	if err != nil {
+		logger.Error("open database", "error", err)
+		return
+	}
+	defer database.Close()
+	if _, err := database.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		logger.Error("enable foreign keys", "error", err)
+		return
+	}
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           app.NewHandler(),
+		Handler:           app.NewHandler(auth.NewService(db.New(database), cfg.AdminUsername, cfg.AdminPassword)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
