@@ -11,19 +11,20 @@ import (
 )
 
 const createIntern = `-- name: CreateIntern :one
-INSERT INTO interns (id, full_name, email, identifier, active, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-RETURNING id, full_name, email, identifier, active, created_at, updated_at
+INSERT INTO interns (id, full_name, email, identifier, password_hash, active, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, full_name, email, identifier, active, created_at, updated_at, password_hash
 `
 
 type CreateInternParams struct {
-	ID         string         `json:"id"`
-	FullName   string         `json:"full_name"`
-	Email      sql.NullString `json:"email"`
-	Identifier sql.NullString `json:"identifier"`
-	Active     int64          `json:"active"`
-	CreatedAt  string         `json:"created_at"`
-	UpdatedAt  string         `json:"updated_at"`
+	ID           string         `json:"id"`
+	FullName     string         `json:"full_name"`
+	Email        sql.NullString `json:"email"`
+	Identifier   sql.NullString `json:"identifier"`
+	PasswordHash string         `json:"password_hash"`
+	Active       int64          `json:"active"`
+	CreatedAt    string         `json:"created_at"`
+	UpdatedAt    string         `json:"updated_at"`
 }
 
 func (q *Queries) CreateIntern(ctx context.Context, arg CreateInternParams) (Intern, error) {
@@ -32,6 +33,7 @@ func (q *Queries) CreateIntern(ctx context.Context, arg CreateInternParams) (Int
 		arg.FullName,
 		arg.Email,
 		arg.Identifier,
+		arg.PasswordHash,
 		arg.Active,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -45,12 +47,33 @@ func (q *Queries) CreateIntern(ctx context.Context, arg CreateInternParams) (Int
 		&i.Active,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
+const getActiveInternByIdentifier = `-- name: GetActiveInternByIdentifier :one
+SELECT id, full_name, email, identifier, active, created_at, updated_at, password_hash FROM interns WHERE identifier = ? AND active = 1
+`
+
+func (q *Queries) GetActiveInternByIdentifier(ctx context.Context, identifier sql.NullString) (Intern, error) {
+	row := q.db.QueryRowContext(ctx, getActiveInternByIdentifier, identifier)
+	var i Intern
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Identifier,
+		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PasswordHash,
 	)
 	return i, err
 }
 
 const getIntern = `-- name: GetIntern :one
-SELECT id, full_name, email, identifier, active, created_at, updated_at FROM interns WHERE id = ?
+SELECT id, full_name, email, identifier, active, created_at, updated_at, password_hash FROM interns WHERE id = ?
 `
 
 func (q *Queries) GetIntern(ctx context.Context, id string) (Intern, error) {
@@ -64,12 +87,13 @@ func (q *Queries) GetIntern(ctx context.Context, id string) (Intern, error) {
 		&i.Active,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
 	)
 	return i, err
 }
 
 const listActiveInterns = `-- name: ListActiveInterns :many
-SELECT id, full_name, email, identifier, active, created_at, updated_at FROM interns WHERE active = 1 ORDER BY full_name, id
+SELECT id, full_name, email, identifier, active, created_at, updated_at, password_hash FROM interns WHERE active = 1 ORDER BY full_name, id
 `
 
 func (q *Queries) ListActiveInterns(ctx context.Context) ([]Intern, error) {
@@ -89,6 +113,7 @@ func (q *Queries) ListActiveInterns(ctx context.Context) ([]Intern, error) {
 			&i.Active,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PasswordHash,
 		); err != nil {
 			return nil, err
 		}

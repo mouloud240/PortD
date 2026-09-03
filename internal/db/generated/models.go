@@ -20,13 +20,14 @@ type ActivityLog struct {
 }
 
 type Intern struct {
-	ID         string         `json:"id"`
-	FullName   string         `json:"full_name"`
-	Email      sql.NullString `json:"email"`
-	Identifier sql.NullString `json:"identifier"`
-	Active     int64          `json:"active"`
-	CreatedAt  string         `json:"created_at"`
-	UpdatedAt  string         `json:"updated_at"`
+	ID           string         `json:"id"`
+	FullName     string         `json:"full_name"`
+	Email        sql.NullString `json:"email"`
+	Identifier   sql.NullString `json:"identifier"`
+	Active       int64          `json:"active"`
+	CreatedAt    string         `json:"created_at"`
+	UpdatedAt    string         `json:"updated_at"`
+	PasswordHash string         `json:"password_hash"`
 }
 
 type Port struct {
@@ -79,4 +80,14 @@ type Route struct {
 	SyncedAt        sql.NullString `json:"synced_at"`
 	CreatedAt       string         `json:"created_at"`
 	UpdatedAt       string         `json:"updated_at"`
+}
+
+type Session struct {
+	ID        string         `json:"id"`
+	TokenHash string         `json:"token_hash"`
+	InternID  sql.NullString `json:"intern_id"`
+	Role      string         `json:"role"`
+	CsrfToken string         `json:"csrf_token"`
+	ExpiresAt string         `json:"expires_at"`
+	CreatedAt string         `json:"created_at"`
 }
