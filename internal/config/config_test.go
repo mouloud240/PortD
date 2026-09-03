@@ -4,9 +4,18 @@ import "testing"
 
 func TestLoadUsesDefaultHTTPAddress(t *testing.T) {
 	t.Setenv("PORTD_HTTP_ADDR", "")
+	t.Setenv("BASE_URL", "")
 
 	if got := Load().HTTPAddr; got != defaultHTTPAddr {
 		t.Fatalf("HTTPAddr = %q, want %q", got, defaultHTTPAddr)
+	}
+}
+
+func TestLoadReadsBaseURL(t *testing.T) {
+	t.Setenv("BASE_URL", "https://portd.example.test")
+
+	if got := Load().BaseURL; got != "https://portd.example.test" {
+		t.Fatalf("BaseURL = %q, want %q", got, "https://portd.example.test")
 	}
 }
 

@@ -12,6 +12,7 @@ erDiagram
     PROJECTS ||--o{ PORTS : owns
     PROJECTS ||--o{ PORT_OBSERVATIONS : matched
     PROJECTS ||--o{ ACTIVITY_LOGS : records
+    PROJECTS ||--|| ROUTES : exposes
     INTERNS ||--o{ ACTIVITY_LOGS : acts
 ```
 
@@ -25,6 +26,7 @@ erDiagram
 | `ports` | Reserves host ports for projects. | `port` is the global primary key. `role` is `main` or `internal` |
 | `port_observations` | Caches host port discovery results. | Port number, optional process data, optional matched project, `observed_at` |
 | `activity_logs` | Records safe audit events. | Optional actor, event and entity data, `outcome`, detail, timestamp |
+| `routes` | Stores the desired Caddy proxy state. | One route per project, public path, upstream main port, provider ID, sync state |
 
 **Rules enforced by SQLite**
 
@@ -39,6 +41,9 @@ erDiagram
 - Intern deletion is blocked while an assignment exists.
 - Deleting a project keeps its observations and clears their project link.
 - Activity actors and entity links are nullable so history survives deletion.
+- A project has at most one route. Deleting the project deletes its route.
+- A route targets a reserved port. The service must ensure that port is the
+  project's `main` port.
 
 The database does not enforce that every project has a main port. The project
 service must create at least one port and exactly one `main` port in one
