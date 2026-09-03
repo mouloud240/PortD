@@ -1,0 +1,43 @@
+package layouts
+
+import "github.com/a-h/templ"
+
+templ Shell(title string, path string, body templ.Component) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · PortD</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+			<script defer src="/static/alpine.min.js"></script>
+			<script defer src="/static/alpine-ajax.min.js"></script>
+		</head>
+		<body>
+			<div class="app-shell">
+				<aside class="sidebar" aria-label="Primary navigation">
+					<a class="brand" href="/dashboard">Project Hub</a>
+					<nav class="nav-list">
+						<a class={ navClass(path, "/dashboard") } href="/dashboard">Overview</a>
+						<p>Projects</p>
+						<a class={ navClass(path, "/projects") } href="/projects">All projects</a>
+						<a class={ navClass(path, "/projects/tracking") } href="/projects/tracking">Project tracking</a>
+						<a class={ navClass(path, "/projects/new") } href="/projects/new">Add project</a>
+						<p>Infrastructure</p>
+						<a class={ navClass(path, "/ports") } href="/ports">Port table</a>
+						<p>People</p>
+						<a class={ navClass(path, "/interns") } href="/interns">Interns</a>
+					</nav>
+					<small>Internal use only</small>
+				</aside>
+				<main>
+					<header class="topbar">
+						<strong>{ title }</strong>
+						<form method="post" action="/logout"><button class="button secondary">Sign out</button></form>
+					</header>
+					<div class="content">@body</div>
+				</main>
+			</div>
+		</body>
+	</html>
+}

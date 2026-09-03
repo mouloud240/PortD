@@ -1,0 +1,21 @@
+package pages
+
+import "github.com/portd/views/layouts"
+
+templ Dashboard() {
+	@layouts.Shell("Overview", "/dashboard", dashboardContent())
+}
+
+templ dashboardContent() {
+	<h1>Overview</h1>
+	<p>Project overview will appear here.</p>
+}
+
+templ Placeholder(title string, path string) {
+	@layouts.Shell(title, path, placeholderContent(title))
+}
+
+templ placeholderContent(title string) {
+	<h1>{ title }</h1>
+	<p>This page is ready for its feature.</p>
+}

@@ -2,7 +2,10 @@
 package app
 
 import (
+	"html/template"
 	"net/http"
+	"path/filepath"
+	"runtime"
 
 	"github.com/portd/internal/auth"
 	internsvc "github.com/portd/internal/interns"
@@ -64,18 +67,37 @@ func requireAdmin(service *auth.Service, next Handler) Handler {
 	}
 }
 
-func dashboard(w http.ResponseWriter, _ *http.Request) error {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, err := w.Write([]byte("<!doctype html><html><head><meta charset=utf-8><meta name=viewport content=width=device-width,initial-scale=1><title>Overview · PortD</title><script src=https://cdn.tailwindcss.com></script></head><body class=bg-slate-50><main class='mx-auto max-w-4xl p-8'><h1 class='text-2xl font-extrabold text-slate-900'>Overview</h1><p class='mt-2 text-slate-600'>Project overview will appear here.</p><form method=post action=/logout class='mt-6'><button class='rounded bg-blue-700 px-4 py-2 text-sm font-bold text-white'>Sign out</button></form></main></body></html>"))
-	return err
+func dashboard(w http.ResponseWriter, r *http.Request) error {
+	return renderPlaceholder(w, "Overview", r.URL.Path)
 }
 
 func placeholder(title string) Handler {
-	return func(w http.ResponseWriter, _ *http.Request) error {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, err := w.Write([]byte("<!doctype html><html><head><meta charset=utf-8><meta name=viewport content=width=device-width,initial-scale=1><title>" + title + " · PortD</title><script src=https://cdn.tailwindcss.com></script></head><body class=bg-slate-50><main class='mx-auto max-w-4xl p-8'><h1 class='text-2xl font-extrabold text-slate-900'>" + title + "</h1></main></body></html>"))
-		return err
+	return func(w http.ResponseWriter, r *http.Request) error {
+		return renderPlaceholder(w, title, r.URL.Path)
 	}
+}
+
+type placeholderData struct {
+	Title string
+	Path  string
+}
+
+var placeholderTemplate = template.Must(template.New("shell.html").Funcs(template.FuncMap{"active": func(current, path string) string {
+	if current == path {
+		return "active"
+	}
+	return ""
+}}).ParseFiles(appViewPath("views/layouts/shell.html"), appViewPath("views/pages/placeholder.html")))
+
+func renderPlaceholder(w http.ResponseWriter, title string, path string) error {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	return placeholderTemplate.ExecuteTemplate(w, "placeholder", placeholderData{Title: title, Path: path})
+}
+
+func appViewPath(path string) string {
+	_, file, _, _ := runtime.Caller(0)
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	return filepath.Join(root, path)
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) error {

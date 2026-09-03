@@ -14,15 +14,15 @@
       <aside class="sidebar" aria-label="Primary navigation">
         <a class="brand" href="/dashboard">Project Hub</a>
         <nav class="nav-list">
-          <a href="/dashboard">Overview</a>
+          <a class="{{ active .Path "/dashboard" }}" href="/dashboard">Overview</a>
           <p>Projects</p>
-          <a href="/projects">All projects</a>
-          <a href="/projects/tracking">Project tracking</a>
-          <a href="/projects/new">Add project</a>
+          <a class="{{ active .Path "/projects" }}" href="/projects">All projects</a>
+          <a class="{{ active .Path "/projects/tracking" }}" href="/projects/tracking">Project tracking</a>
+          <a class="{{ active .Path "/projects/new" }}" href="/projects/new">Add project</a>
           <p>Infrastructure</p>
-          <a href="/ports">Port table</a>
+          <a class="{{ active .Path "/ports" }}" href="/ports">Port table</a>
           <p>People</p>
-          <a href="/interns">Interns</a>
+          <a class="{{ active .Path "/interns" }}" href="/interns">Interns</a>
         </nav>
         <small>Internal use only</small>
       </aside>
