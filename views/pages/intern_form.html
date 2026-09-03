@@ -1,1 +1,13 @@
-{{define "intern_form"}}{{template "shell" .}}{{end}}{{define "content"}}<a class="breadcrumb" href="/interns">← Interns</a><h1>{{.Title}}</h1>{{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}<form class="panel form" method="post" x-data="{busy:false}" @submit="busy=true"><label>Full name<input name="full_name" required value="{{.Intern.FullName}}"></label><label>Username<input name="identifier" required value="{{.Intern.Identifier.String}}"></label><label>Email<input type="email" name="email" value="{{.Intern.Email.String}}"></label>{{if .New}}<label>Password<input type="password" name="password" required></label>{{end}}<button class="button primary" :disabled="busy">Save intern</button></form>{{end}}
+{{ define "intern_form" }}{{ template "shell" . }}{{ end }}
+{{ define "content" }}
+<a class="breadcrumb" href="/interns">← Interns</a>
+<h1>{{ .Title }}</h1>
+{{ if .Error }}<p class="form-error" role="alert">{{ .Error }}</p>{{ end }}
+<form class="panel form" method="post" x-data="{ busy: false }" @submit="busy = true">
+  <label>Full name<input name="full_name" required value="{{ .Intern.FullName }}" /></label>
+  <label>Username<input name="identifier" required value="{{ .Intern.Identifier.String }}" /></label>
+  <label>Email<input type="email" name="email" value="{{ .Intern.Email.String }}" /></label>
+  {{ if .New }}<label>Password<input type="password" name="password" required /></label>{{ end }}
+  <button class="button primary" :disabled="busy">Save intern</button>
+</form>
+{{ end }}
