@@ -18,6 +18,12 @@ Treat it as the behavioural reference when implementing the product.
 - Alpine.js for small client-side state and interactions.
 - The Alpine AJAX plugin for progressive page and fragment updates. Prefer it
   over building a separate JSON SPA API for standard UI interactions.
+- Keep templates in `views/layouts` and `views/pages`. Keep browser assets in
+  `web/static`. Do not embed page HTML in Go strings.
+- Load Alpine and Alpine AJAX from pinned local files in `web/static`. Use
+  `x-data` for small UI state and `x-target` for progressive form updates.
+  Server responses must support normal full-page requests and enhanced
+  requests marked by `X-Alpine-Request` and `X-Alpine-Target`.
 - SQLite for persistent state.
 - `sqlc` for all application SQL. Keep SQL queries in `.sql` files and use
   generated, typed Go code; do not hand-write database access in handlers.

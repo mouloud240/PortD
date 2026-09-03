@@ -25,7 +25,7 @@ func (s *Service) LoginPost(w http.ResponseWriter, r *http.Request) error {
 		return loginTemplate.Execute(w, loginData{Error: "Invalid username or password."})
 	}
 	http.SetCookie(w, &http.Cookie{Name: SessionCookieName, Value: session.Token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil, Expires: time.Now().Add(s.sessionTTL)})
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 	return nil
 }
 
