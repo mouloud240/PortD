@@ -15,6 +15,7 @@ import (
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/config"
 	"github.com/portd/internal/db/generated"
+	internsvc "github.com/portd/internal/interns"
 	_ "modernc.org/sqlite"
 )
 
@@ -34,7 +35,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           app.NewHandler(auth.NewService(db.New(database), cfg.AdminUsername, cfg.AdminPassword)),
+		Handler:           app.NewHandler(auth.NewService(db.New(database), cfg.AdminUsername, cfg.AdminPassword), internsvc.NewService(db.New(database))),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

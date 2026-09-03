@@ -8,6 +8,7 @@ import (
 
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/db/generated"
+	internsvc "github.com/portd/internal/interns"
 	_ "modernc.org/sqlite"
 )
 
@@ -17,7 +18,8 @@ func TestHealthz(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	response := httptest.NewRecorder()
 
-	NewHandler(auth.NewService(db.New(testDB(t)), "admin", "admin-password")).ServeHTTP(response, request)
+	queries := db.New(testDB(t))
+	NewHandler(auth.NewService(queries, "admin", "admin-password"), internsvc.NewService(queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
