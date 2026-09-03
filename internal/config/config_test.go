@@ -26,3 +26,12 @@ func TestLoadReadsHTTPAddress(t *testing.T) {
 		t.Fatalf("HTTPAddr = %q, want %q", got, "127.0.0.1:9090")
 	}
 }
+
+func TestLoadUsesDefaultAdmin(t *testing.T) {
+	t.Setenv("PORTD_ADMIN_USERNAME", "")
+	t.Setenv("PORTD_ADMIN_PASSWORD", "")
+	cfg := Load()
+	if cfg.AdminUsername != defaultAdminUsername || cfg.AdminPassword != defaultAdminPassword {
+		t.Fatalf("admin defaults = %q/%q", cfg.AdminUsername, cfg.AdminPassword)
+	}
+}

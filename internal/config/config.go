@@ -4,8 +4,10 @@ package config
 import "os"
 
 const (
-	defaultHTTPAddr = "127.0.0.1:8080"
-	defaultDBPath   = "tmp/portd.db"
+	defaultHTTPAddr      = "127.0.0.1:8080"
+	defaultDBPath        = "tmp/portd.db"
+	defaultAdminUsername = "admin"
+	defaultAdminPassword = "admin-password"
 )
 
 // Config contains process-level settings.
@@ -29,5 +31,13 @@ func Load() Config {
 	if databasePath == "" {
 		databasePath = defaultDBPath
 	}
-	return Config{HTTPAddr: address, BaseURL: baseURL, DBPath: databasePath, AdminUsername: os.Getenv("PORTD_ADMIN_USERNAME"), AdminPassword: os.Getenv("PORTD_ADMIN_PASSWORD")}
+	adminUsername := os.Getenv("PORTD_ADMIN_USERNAME")
+	if adminUsername == "" {
+		adminUsername = defaultAdminUsername
+	}
+	adminPassword := os.Getenv("PORTD_ADMIN_PASSWORD")
+	if adminPassword == "" {
+		adminPassword = defaultAdminPassword
+	}
+	return Config{HTTPAddr: address, BaseURL: baseURL, DBPath: databasePath, AdminUsername: adminUsername, AdminPassword: adminPassword}
 }
