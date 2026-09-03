@@ -26,6 +26,8 @@ type Principal struct {
 	CSRFToken string
 }
 
+func (p Principal) IsAdmin() bool { return p.Role == "admin" }
+
 type Session struct {
 	Token     string
 	CSRFToken string

@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const countInternAssignments = `-- name: CountInternAssignments :one
+SELECT COUNT(*) FROM project_interns WHERE intern_id = ?
+`
+
+func (q *Queries) CountInternAssignments(ctx context.Context, internID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countInternAssignments, internID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createIntern = `-- name: CreateIntern :one
 INSERT INTO interns (id, full_name, email, identifier, password_hash, active, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -50,6 +61,29 @@ func (q *Queries) CreateIntern(ctx context.Context, arg CreateInternParams) (Int
 		&i.PasswordHash,
 	)
 	return i, err
+}
+
+const deactivateIntern = `-- name: DeactivateIntern :exec
+UPDATE interns SET active = 0, updated_at = ? WHERE id = ?
+`
+
+type DeactivateInternParams struct {
+	UpdatedAt string `json:"updated_at"`
+	ID        string `json:"id"`
+}
+
+func (q *Queries) DeactivateIntern(ctx context.Context, arg DeactivateInternParams) error {
+	_, err := q.db.ExecContext(ctx, deactivateIntern, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const deleteIntern = `-- name: DeleteIntern :exec
+DELETE FROM interns WHERE id = ?
+`
+
+func (q *Queries) DeleteIntern(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteIntern, id)
+	return err
 }
 
 const getActiveInternByIdentifier = `-- name: GetActiveInternByIdentifier :one
@@ -126,4 +160,107 @@ func (q *Queries) ListActiveInterns(ctx context.Context) ([]Intern, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const listInterns = `-- name: ListInterns :many
+SELECT id, full_name, email, identifier, active, created_at, updated_at, password_hash FROM interns WHERE (? = '' OR full_name LIKE '%' || ? || '%' OR email LIKE '%' || ? || '%' OR identifier LIKE '%' || ? || '%') AND (? < 0 OR active = ?) ORDER BY full_name, id
+`
+
+type ListInternsParams struct {
+	Column1 interface{}    `json:"column_1"`
+	Column2 sql.NullString `json:"column_2"`
+	Column3 sql.NullString `json:"column_3"`
+	Column4 sql.NullString `json:"column_4"`
+	Column5 interface{}    `json:"column_5"`
+	Active  int64          `json:"active"`
+}
+
+func (q *Queries) ListInterns(ctx context.Context, arg ListInternsParams) ([]Intern, error) {
+	rows, err := q.db.QueryContext(ctx, listInterns,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Active,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Intern
+	for rows.Next() {
+		var i Intern
+		if err := rows.Scan(
+			&i.ID,
+			&i.FullName,
+			&i.Email,
+			&i.Identifier,
+			&i.Active,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PasswordHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateIntern = `-- name: UpdateIntern :one
+UPDATE interns SET full_name = ?, email = ?, identifier = ?, active = ?, updated_at = ? WHERE id = ? RETURNING id, full_name, email, identifier, active, created_at, updated_at, password_hash
+`
+
+type UpdateInternParams struct {
+	FullName   string         `json:"full_name"`
+	Email      sql.NullString `json:"email"`
+	Identifier sql.NullString `json:"identifier"`
+	Active     int64          `json:"active"`
+	UpdatedAt  string         `json:"updated_at"`
+	ID         string         `json:"id"`
+}
+
+func (q *Queries) UpdateIntern(ctx context.Context, arg UpdateInternParams) (Intern, error) {
+	row := q.db.QueryRowContext(ctx, updateIntern,
+		arg.FullName,
+		arg.Email,
+		arg.Identifier,
+		arg.Active,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	var i Intern
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Identifier,
+		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
+const updateInternPassword = `-- name: UpdateInternPassword :exec
+UPDATE interns SET password_hash = ?, updated_at = ? WHERE id = ?
+`
+
+type UpdateInternPasswordParams struct {
+	PasswordHash string `json:"password_hash"`
+	UpdatedAt    string `json:"updated_at"`
+	ID           string `json:"id"`
+}
+
+func (q *Queries) UpdateInternPassword(ctx context.Context, arg UpdateInternPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updateInternPassword, arg.PasswordHash, arg.UpdatedAt, arg.ID)
+	return err
 }
