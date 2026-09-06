@@ -1,81 +1,115 @@
 package interns
 
 import (
-	"html/template"
+	"database/sql"
+	"errors"
 	"net/http"
-	"path/filepath"
-	"runtime"
 	"strconv"
 
-	"github.com/portd/internal/db/generated"
+	"github.com/portd/internal/httperr"
+	"github.com/portd/views/pages"
 )
 
-var templateFuncs = template.FuncMap{"active": func(current, path string) string {
-	if current == path || (path == "/interns" && len(current) >= len(path) && current[:len(path)] == path) {
-		return "active"
-	}
-	return ""
-}}
-
-var internListTemplate = template.Must(template.New("shell.html").Funcs(templateFuncs).ParseFiles(viewPath("views/layouts/shell.html"), viewPath("views/pages/interns.html")))
-var internFormTemplate = template.Must(template.New("shell.html").Funcs(templateFuncs).ParseFiles(viewPath("views/layouts/shell.html"), viewPath("views/pages/intern_form.html")))
-
-type pageData struct {
-	Title, Search, Error string
-	Path                 string
-	Items                []db.Intern
-	Intern               db.Intern
-	New                  bool
-}
-
 func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
-	items, err := s.List(r.Context(), r.URL.Query().Get("q"), -1)
+	search := r.URL.Query().Get("q")
+	items, err := s.List(r.Context(), search, -1)
 	if err != nil {
 		return err
 	}
-	return render(w, internListTemplate, "interns", pageData{Title: "Interns", Path: r.URL.Path, Search: r.URL.Query().Get("q"), Items: items})
+	return httperr.Render(w, r, http.StatusOK, pages.InternsPage("Interns", r.URL.Path, search, pages.ListItems(items)))
 }
-func (s *Service) NewPage(w http.ResponseWriter, _ *http.Request) error {
-	return render(w, internFormTemplate, "intern_form", pageData{Title: "New intern", Path: "/interns", New: true})
+
+func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {
+	return httperr.Render(w, r, http.StatusOK, pages.InternFormPage(pages.InternFormData{
+		Title:  "New intern",
+		Path:   "/interns",
+		Action: "/interns",
+		Active: true,
+		IsNew:  true,
+	}))
 }
+
 func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return err
+		return httperr.BadRequest("Invalid form submission.", err)
 	}
-	intern, err := s.Create(r.Context(), r.FormValue("full_name"), r.FormValue("email"), r.FormValue("identifier"), r.FormValue("password"))
+	form := pages.InternFormData{
+		Title:      "New intern",
+		Path:       "/interns",
+		Action:     "/interns",
+		FullName:   r.FormValue("full_name"),
+		Identifier: r.FormValue("identifier"),
+		Email:      r.FormValue("email"),
+		Active:     true,
+		IsNew:      true,
+	}
+	intern, err := s.Create(r.Context(), form.FullName, form.Email, form.Identifier, r.FormValue("password"))
 	if err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		return render(w, internFormTemplate, "intern_form", pageData{Title: "New intern", Path: "/interns", New: true, Error: "Full name, username, and password are required."})
+		switch {
+		case errors.Is(err, ErrInvalid):
+			form.Error = "Full name, username, and password are required."
+			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.InternFormPage(form))
+		case errors.Is(err, ErrConflict):
+			form.Error = "That username or email is already taken."
+			return httperr.Render(w, r, http.StatusConflict, pages.InternFormPage(form))
+		default:
+			return err
+		}
 	}
 	http.Redirect(w, r, "/interns/"+intern.ID, http.StatusSeeOther)
 	return nil
 }
+
 func (s *Service) DetailPage(w http.ResponseWriter, r *http.Request) error {
 	intern, err := s.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return httperr.NotFound("Intern not found.", err)
+		}
 		return err
 	}
-	return render(w, internFormTemplate, "intern_form", pageData{Title: "Edit intern", Path: "/interns", Intern: intern})
+	return httperr.Render(w, r, http.StatusOK, pages.InternFormPage(pages.InternFormData{
+		Title:      "Edit intern",
+		Path:       "/interns",
+		Action:     "/interns/" + intern.ID,
+		ID:         intern.ID,
+		FullName:   intern.FullName,
+		Identifier: intern.Identifier.String,
+		Email:      intern.Email.String,
+		Active:     intern.Active == 1,
+	}))
 }
+
 func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return err
+		return httperr.BadRequest("Invalid form submission.", err)
 	}
 	active, _ := strconv.ParseBool(r.FormValue("active"))
-	intern, err := s.Update(r.Context(), r.PathValue("id"), r.FormValue("full_name"), r.FormValue("email"), r.FormValue("identifier"), active)
+	form := pages.InternFormData{
+		Title:      "Edit intern",
+		Path:       "/interns",
+		Action:     "/interns/" + r.PathValue("id"),
+		ID:         r.PathValue("id"),
+		FullName:   r.FormValue("full_name"),
+		Identifier: r.FormValue("identifier"),
+		Email:      r.FormValue("email"),
+		Active:     active,
+	}
+	intern, err := s.Update(r.Context(), form.ID, form.FullName, form.Email, form.Identifier, active)
 	if err != nil {
-		return err
+		switch {
+		case errors.Is(err, ErrInvalid):
+			form.Error = "Full name and username are required."
+			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.InternFormPage(form))
+		case errors.Is(err, ErrConflict):
+			form.Error = "That username or email is already taken."
+			return httperr.Render(w, r, http.StatusConflict, pages.InternFormPage(form))
+		case errors.Is(err, sql.ErrNoRows):
+			return httperr.NotFound("Intern not found.", err)
+		default:
+			return err
+		}
 	}
 	http.Redirect(w, r, "/interns/"+intern.ID, http.StatusSeeOther)
 	return nil
-}
-func render(w http.ResponseWriter, templates *template.Template, name string, data pageData) error {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return templates.ExecuteTemplate(w, name, data)
-}
-
-func viewPath(path string) string {
-	_, file, _, _ := runtime.Caller(0)
-	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-	return filepath.Join(root, path)
 }

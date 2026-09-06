@@ -1,0 +1,13 @@
+{
+  "name": "portd",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Algérie Télécom internship project hub",
+  "scripts": {
+    "build:css": "tailwindcss -i web/input.css -o web/static/app.css --minify",
+    "watch:css": "tailwindcss -i web/input.css -o web/static/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

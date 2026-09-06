@@ -1,11 +1,15 @@
-package app
+// Package httperr carries the shared HTTP error and templ-render helpers.
+package httperr
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"html"
 	"log/slog"
 	"net/http"
+
+	"github.com/a-h/templ"
 )
 
 // Handler is an HTTP handler that reports failures to the shared error writer.
@@ -32,9 +36,15 @@ func BadRequest(message string, err error) error {
 func Unauthorized(message string, err error) error {
 	return httpError(http.StatusUnauthorized, message, err)
 }
-func Forbidden(message string, err error) error { return httpError(http.StatusForbidden, message, err) }
-func NotFound(message string, err error) error  { return httpError(http.StatusNotFound, message, err) }
-func Conflict(message string, err error) error  { return httpError(http.StatusConflict, message, err) }
+func Forbidden(message string, err error) error {
+	return httpError(http.StatusForbidden, message, err)
+}
+func NotFound(message string, err error) error {
+	return httpError(http.StatusNotFound, message, err)
+}
+func Conflict(message string, err error) error {
+	return httpError(http.StatusConflict, message, err)
+}
 
 // Handle converts an error-returning handler into a standard HTTP handler.
 func Handle(handler Handler) http.Handler {
@@ -44,6 +54,19 @@ func Handle(handler Handler) http.Handler {
 			writeError(tracked, err)
 		}
 	})
+}
+
+// Render writes a templ component all-or-nothing: partial output never
+// reaches the client when Render fails midway.
+func Render(w http.ResponseWriter, r *http.Request, status int, component templ.Component) error {
+	var buf bytes.Buffer
+	if err := component.Render(r.Context(), &buf); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type responseWriter struct {

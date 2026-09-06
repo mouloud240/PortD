@@ -9,3 +9,4 @@ agent_docs/*
 .agent
 .claude
 .opencode
+node_modules/

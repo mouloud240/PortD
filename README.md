@@ -22,6 +22,7 @@ Project hub for Algérie Télécom internships. Authenticated admins and interns
 - **templ** — typed, server-rendered HTML components.
 - **Alpine.js + AJAX plugin** — client-side state and progressive fragment updates (no separate JSON SPA).
 - **SQLite** — persistent state via `sqlc`-generated typed Go code.
+- **Tailwind CSS** — utility-first styling configured via `tailwind.config.js` and compiled to `web/static/app.css`.
 - **Caddy** — reverse proxy configured through its API.
 
 ## Getting started
@@ -57,6 +58,7 @@ The source architecture is documented in [agent_docs/System_overview.svg](agent_
 - Format: `gofmt -w .`
 - Vet: `go vet ./...`
 - Test: `just test`
+- Build CSS: `just build-css` (or `just watch-css` for development)
 - SQL lives in `.sql` files; use `sqlc` to generate typed Go. Do not hand-write database access in handlers.
 - Test external side effects (Caddy, process execution) through interfaces/fakes.
 

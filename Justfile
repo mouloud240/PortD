@@ -5,6 +5,13 @@ db := env_var_or_default("PORTD_DB_PATH", "tmp/portd.db")
 generate:
     sqlc generate
 
+# Render .templ sources to *_templ.go (version pinned by the tool directive in go.mod).
+templ:
+    go tool templ generate
+
+templ-fmt:
+    go tool templ fmt
+
 migrate-up:
     mkdir -p "$(dirname "{{db}}")"
     PORTD_DB_PATH="{{db}}" go run ./cmd/migrate up
@@ -38,5 +45,16 @@ create-migration name:
     echo "created $up"
     echo "created $down"
 
-test:
+# Generate first: a stale *_templ.go compiles cleanly and renders old markup.
+test: templ
     go test ./...
+
+# Live reload for development: watches Go and templ sources, Uses temp Live reload feature
+dev:
+     go tool templ generate --watch --proxy="http://localhost:8080" --cmd="go run ./cmd/portd"
+
+build-css:
+    npx -y tailwindcss@3 -i web/input.css -o web/static/app.css --minify
+
+watch-css:
+    npx -y tailwindcss@3 -i web/input.css -o web/static/app.css --watch

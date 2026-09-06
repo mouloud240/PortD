@@ -12,7 +12,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var ErrInvalid = errors.New("invalid intern data")
+var (
+	ErrInvalid   = errors.New("invalid intern data")
+	ErrConflict  = errors.New("intern already exists")
+	ErrNotFound  = errors.New("intern not found")
+)
+
+func isConflict(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
 
 type Service struct{ queries *db.Queries }
 
@@ -24,7 +32,11 @@ func (s *Service) List(ctx context.Context, search string, active int64) ([]db.I
 }
 
 func (s *Service) Get(ctx context.Context, id string) (db.Intern, error) {
-	return s.queries.GetIntern(ctx, id)
+	intern, err := s.queries.GetIntern(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return db.Intern{}, ErrNotFound
+	}
+	return intern, err
 }
 
 func (s *Service) Create(ctx context.Context, fullName, email, identifier, password string) (db.Intern, error) {
@@ -36,7 +48,11 @@ func (s *Service) Create(ctx context.Context, fullName, email, identifier, passw
 		return db.Intern{}, err
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	return s.queries.CreateIntern(ctx, db.CreateInternParams{ID: uuid.NewString(), FullName: strings.TrimSpace(fullName), Email: null(email), Identifier: null(identifier), PasswordHash: string(hash), Active: 1, CreatedAt: now, UpdatedAt: now})
+	intern, err := s.queries.CreateIntern(ctx, db.CreateInternParams{ID: uuid.NewString(), FullName: strings.TrimSpace(fullName), Email: null(email), Identifier: null(identifier), PasswordHash: string(hash), Active: 1, CreatedAt: now, UpdatedAt: now})
+	if isConflict(err) {
+		return db.Intern{}, ErrConflict
+	}
+	return intern, err
 }
 
 func (s *Service) Update(ctx context.Context, id, fullName, email, identifier string, active bool) (db.Intern, error) {
@@ -47,7 +63,11 @@ func (s *Service) Update(ctx context.Context, id, fullName, email, identifier st
 	if active {
 		value = 1
 	}
-	return s.queries.UpdateIntern(ctx, db.UpdateInternParams{ID: id, FullName: strings.TrimSpace(fullName), Email: null(email), Identifier: null(identifier), Active: value, UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano)})
+	intern, err := s.queries.UpdateIntern(ctx, db.UpdateInternParams{ID: id, FullName: strings.TrimSpace(fullName), Email: null(email), Identifier: null(identifier), Active: value, UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano)})
+	if isConflict(err) {
+		return db.Intern{}, ErrConflict
+	}
+	return intern, err
 }
 
 func (s *Service) ResetPassword(ctx context.Context, id, password string) error {

@@ -1,21 +1,176 @@
 package pages
 
-import "github.com/portd/views/layouts"
+import (
+	"github.com/portd/views/components"
+	"github.com/portd/views/layouts"
+)
 
-templ Dashboard() {
-	@layouts.Shell("Overview", "/dashboard", dashboardContent())
+templ DashboardPage() {
+	@layouts.Shell("Overview", "/dashboard", dashboardBody())
 }
 
-templ dashboardContent() {
-	<h1>Overview</h1>
-	<p>Project overview will appear here.</p>
+templ dashboardBody() {
+	<div class="space-y-1">
+		<h1 class="text-2xl font-bold text-brand-navy">Overview</h1>
+		<p class="text-brand-muted text-sm">Project overview will appear here.</p>
+	</div>
 }
 
-templ Placeholder(title string, path string) {
-	@layouts.Shell(title, path, placeholderContent(title))
+templ PlaceholderPage(title string, path string) {
+	@layouts.Shell(title, path, placeholderBody(title))
 }
 
-templ placeholderContent(title string) {
-	<h1>{ title }</h1>
-	<p>This page is ready for its feature.</p>
+templ placeholderBody(title string) {
+	<div class="space-y-1">
+		<h1 class="text-2xl font-bold text-brand-navy">{ title }</h1>
+		<p class="text-brand-muted text-sm">This page is ready for its feature.</p>
+	</div>
+}
+
+templ LoginPage(errorMessage string) {
+	<!doctype html>
+	<html lang="en" class="h-full bg-brand-ground">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Sign in · PortD</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+			@layouts.HeadScripts()
+		</head>
+		<body class="min-h-full font-sans text-sm text-brand-ink antialiased bg-brand-ground flex items-center justify-center p-4">
+			<main class="w-full max-w-sm bg-white border border-brand-line rounded-lg p-6 shadow-sm">
+				<h1 class="text-2xl font-bold text-brand-navy">PortD</h1>
+				<p class="text-brand-muted text-sm mt-0.5 mb-5">Signing in to manage internship projects.</p>
+				if errorMessage != "" {
+					<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+						{ errorMessage }
+					</div>
+				}
+				<form method="post" action="/login" class="space-y-4">
+					<label class="block text-sm font-bold text-slate-700">
+						Username
+						<input
+							name="username"
+							required
+							autocomplete="username"
+							class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors"
+						/>
+					</label>
+					<label class="block text-sm font-bold text-slate-700">
+						Password
+						@components.PasswordField("password", "current-password", true)
+					</label>
+					<button
+						type="submit"
+						class="w-full mt-2 inline-flex items-center justify-center min-h-[38px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
+					>
+						Sign in
+					</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ InternsPage(title string, path string, search string, items []InternListItem) {
+	@layouts.Shell(title, path, internsBody(search, items))
+}
+
+templ internsBody(search string, items []InternListItem) {
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+		<div>
+			<h1 class="text-2xl font-bold text-brand-navy">Interns</h1>
+			<p class="text-brand-muted text-sm mt-0.5">Create intern accounts and see the projects they own.</p>
+		</div>
+		<a class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white text-sm font-bold rounded-lg transition-colors shadow-sm cursor-pointer" href="/interns/new">+ Add intern</a>
+	</div>
+	<section class="bg-white border border-brand-line rounded-lg shadow-sm overflow-hidden">
+		<form class="flex items-center gap-3 p-4 border-b border-brand-line" method="get" x-target="intern-table">
+			<input class="w-full max-w-md px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 placeholder-slate-400 font-normal transition-colors" name="q" value={ search } placeholder="Search interns" aria-label="Search interns"/>
+			<button class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer">Search</button>
+		</form>
+		<div id="intern-table" class="overflow-x-auto">
+			<table class="w-full text-left border-collapse">
+				<thead>
+					<tr class="border-b border-brand-line bg-slate-50/75">
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Username</th>
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">State</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-slate-100">
+					for _, item := range items {
+						<tr class="hover:bg-slate-50/60 transition-colors">
+							<td class="px-5 py-3.5 text-sm font-bold text-brand-navy whitespace-nowrap">
+								<a class="text-brand-blue hover:underline" href={ "/interns/" + item.ID }>{ item.FullName }</a>
+							</td>
+							<td class="px-5 py-3.5 text-sm whitespace-nowrap">
+								<code class="font-mono text-xs px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-700">{ item.Username }</code>
+							</td>
+							<td class="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">{ item.Email }</td>
+							<td class="px-5 py-3.5 text-sm whitespace-nowrap">
+								if item.Active {
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
+										<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
+										Active
+									</span>
+								} else {
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+										<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+										Inactive
+									</span>
+								}
+							</td>
+						</tr>
+					}
+					if len(items) == 0 {
+						<tr>
+							<td colspan="4" class="px-5 py-12 text-center text-brand-muted text-sm">No interns found.</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</section>
+}
+
+templ InternFormPage(data InternFormData) {
+	@layouts.Shell(data.Title, data.Path, internFormBody(data))
+}
+
+templ internFormBody(data InternFormData) {
+	<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3" href="/interns">← Interns</a>
+	<h1 class="text-2xl font-bold text-brand-navy mb-4">{ data.Title }</h1>
+	if data.Error != "" {
+		<div class="max-w-xl p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+			{ data.Error }
+		</div>
+	}
+	<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4" method="post" action={ data.Action } x-data="{ busy: false }" @submit="busy = true">
+		<label class="block text-sm font-bold text-slate-700">
+			Full name
+			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="full_name" required value={ data.FullName }/>
+		</label>
+		<label class="block text-sm font-bold text-slate-700">
+			Username
+			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="identifier" required value={ data.Identifier }/>
+		</label>
+		<label class="block text-sm font-bold text-slate-700">
+			Email
+			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" type="email" name="email" value={ data.Email }/>
+		</label>
+		if data.IsNew {
+			<label class="block text-sm font-bold text-slate-700">
+				Password
+				@components.PasswordField("password", "new-password", true)
+			</label>
+	} else {
+			<label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+				<input type="checkbox" name="active" value="true" checked?={ data.Active } class="h-4 w-4 rounded border-slate-300"/>
+				Active account
+			</label>
+	}
+		<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
+	</form>
 }

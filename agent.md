@@ -24,6 +24,8 @@ Treat it as the behavioural reference when implementing the product.
   `x-data` for small UI state and `x-target` for progressive form updates.
   Server responses must support normal full-page requests and enhanced
   requests marked by `X-Alpine-Request` and `X-Alpine-Target`.
+- Tailwind CSS for utility-first styling, configured in `tailwind.config.js` and
+  compiled to `web/static/app.css` with `just build-css`.
 - SQLite for persistent state.
 - `sqlc` for all application SQL. Keep SQL queries in `.sql` files and use
   generated, typed Go code; do not hand-write database access in handlers.
@@ -84,6 +86,8 @@ requirements explicitly change.
 - Use semantic HTML, labels, keyboard-accessible controls, visible focus, and
   concise status text. Use monospace for ports, filesystem paths, commands,
   and URLs.
+- Use Tailwind CSS utility classes for styling. Do not write ad-hoc raw CSS files
+  or embed raw styles in HTML <style> tags.
 - The key screens are dashboard, project list, project detail, intern CRUD,
   project CRUD, port table, and activity log.
 - The project-detail dashboard is also the project bootstrap guide. It must show
@@ -96,6 +100,7 @@ requirements explicitly change.
 
 - Format Go and templ-generated Go, run unit tests, and run `go vet` before
   hand-off.
+- Build and verify Tailwind CSS with `just build-css`.
 - Test database constraints and service workflows with a temporary SQLite DB.
 - Test Caddy and process execution through interfaces/fakes; do not require a
   live proxy or launch arbitrary project scripts in unit tests.
