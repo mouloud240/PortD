@@ -227,7 +227,7 @@ func Shell(title string, path string, body templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</strong><form method=\"post\" action=\"/logout\"><button class=\"inline-flex items-center justify-center min-h-[36px] px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer\">Sign out</button></form></header><div class=\"w-full max-w-6xl mx-auto p-5 md:p-8 flex-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</strong> <a href=\"/profile\" aria-label=\"Profile\" title=\"Profile\" class=\"inline-flex items-center justify-center w-9 h-9 rounded-full bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 transition-colors\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"w-5 h-5\" aria-hidden=\"true\"><path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\"></path><circle cx=\"12\" cy=\"7\" r=\"4\"></circle></svg></a></header><div class=\"w-full max-w-6xl mx-auto p-5 md:p-8 flex-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

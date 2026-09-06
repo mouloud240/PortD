@@ -47,6 +47,8 @@ views/pages/pages_templ.go           (generated, committed)
 | `GET /login` | `auth.LoginPage` | `pages.LoginPage("")` |
 | `POST /login` | `auth.LoginPost` | `pages.LoginPage(msg)` on 401, else redirect `/dashboard` (303) |
 | `POST /logout` | `auth.LogoutPost` | redirect `/login` (303) |
+| `GET /profile` | `app.profilePage` | `pages.ProfilePage(ProfileData)` (own record, editable for interns; read-only for admin) |
+| `POST /profile` | `app.profileUpdate` | re-render `ProfilePage` on 422/409, else redirect `/profile` (303); admins redirect (303) unchanged |
 | `GET /interns` | `interns.ListPage` | `pages.InternsPage("Interns", path, q, ListItems(rows))` |
 | `GET /interns/new` | `interns.NewPage` | `pages.InternFormPage(New InternFormData{IsNew:true})` |
 | `POST /interns` | `interns.CreatePost` | re-render `InternFormPage` on 422/409, else redirect `/interns/{id}` (303) |

@@ -28,6 +28,9 @@ type Principal struct {
 
 func (p Principal) IsAdmin() bool { return p.Role == "admin" }
 
+// AdminUsername exposes the configured admin login for display purposes.
+func (s *Service) AdminUsername() string { return s.adminUsername }
+
 type Session struct {
 	Token     string
 	CSRFToken string

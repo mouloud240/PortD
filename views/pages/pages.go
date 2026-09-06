@@ -43,3 +43,16 @@ type InternFormData struct {
 	Active           bool
 	IsNew            bool
 }
+
+// ProfileData is the finished profile value; admins get a read-only view,
+// interns get their own record for editing.
+type ProfileData struct {
+	Title    string
+	Path     string
+	Role     string
+	IsAdmin  bool
+	FullName string
+	Username string
+	Email    string
+	Error    string
+}
