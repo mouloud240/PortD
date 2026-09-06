@@ -12,11 +12,21 @@ import (
 
 func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 	search := r.URL.Query().Get("q")
-	items, err := s.List(r.Context(), search, -1)
+	state := r.URL.Query().Get("state")
+	var active int64 = -1
+	switch state {
+	case "active":
+		active = 1
+	case "inactive":
+		active = 0
+	default:
+		state = "all"
+	}
+	items, err := s.List(r.Context(), search, active)
 	if err != nil {
 		return err
 	}
-	return httperr.Render(w, r, http.StatusOK, pages.InternsPage("Interns", r.URL.Path, search, pages.ListItems(items)))
+	return httperr.Render(w, r, http.StatusOK, pages.InternsPage("Interns", r.URL.Path, search, state, pages.ListItems(items)))
 }
 
 func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {

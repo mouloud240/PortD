@@ -127,11 +127,11 @@ templ profileBody(data ProfileData) {
 	}
 }
 
-templ InternsPage(title string, path string, search string, items []InternListItem) {
-	@layouts.Shell(title, path, internsBody(search, items))
+templ InternsPage(title string, path string, search string, state string, items []InternListItem) {
+	@layouts.Shell(title, path, internsBody(search, state, items))
 }
 
-templ internsBody(search string, items []InternListItem) {
+templ internsBody(search string, state string, items []InternListItem) {
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
 		<div>
 			<h1 class="text-2xl font-bold text-brand-navy">Interns</h1>
@@ -140,8 +140,13 @@ templ internsBody(search string, items []InternListItem) {
 		<a class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white text-sm font-bold rounded-lg transition-colors shadow-sm cursor-pointer" href="/interns/new">+ Add intern</a>
 	</div>
 	<section class="bg-white border border-brand-line rounded-lg shadow-sm overflow-hidden">
-		<form class="flex items-center gap-3 p-4 border-b border-brand-line" method="get" x-target="intern-table">
-			<input class="w-full max-w-md px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 placeholder-slate-400 font-normal transition-colors" name="q" value={ search } placeholder="Search interns" aria-label="Search interns"/>
+		<form class="flex flex-wrap items-center gap-3 p-4 border-b border-brand-line" method="get" x-target="intern-table">
+			<input class="w-full max-w-md flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 placeholder-slate-400 font-normal transition-colors" name="q" value={ search } placeholder="Search interns" aria-label="Search interns"/>
+			<select name="state" aria-label="Filter by activity state" onchange="this.form.requestSubmit()" class="px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer">
+				<option value="all" selected?={ state == "" || state == "all" }>All states</option>
+				<option value="active" selected?={ state == "active" }>Active</option>
+				<option value="inactive" selected?={ state == "inactive" }>Inactive</option>
+			</select>
 			<button class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer">Search</button>
 		</form>
 		<div id="intern-table" class="overflow-x-auto">
@@ -202,7 +207,7 @@ templ internFormBody(data InternFormData) {
 			{ data.Error }
 		</div>
 	}
-	<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4" method="post" action={ data.Action } x-data="{ busy: false }" @submit="busy = true">
+	<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4" method="post" action={ data.Action } x-data="{ busy: false, active: true }" x-init={ "active = " + activeJS(data.Active) } @submit="busy = true">
 		<label class="block text-sm font-bold text-slate-700">
 			Full name
 			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="full_name" required value={ data.FullName }/>
@@ -220,12 +225,21 @@ templ internFormBody(data InternFormData) {
 				Password
 				@components.PasswordField("password", "new-password", true)
 			</label>
+			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
 	} else {
-			<label class="flex items-center gap-2 text-sm font-bold text-slate-700">
-				<input type="checkbox" name="active" value="true" checked?={ data.Active } class="h-4 w-4 rounded border-slate-300"/>
-				Active account
-			</label>
+		<div class="flex flex-wrap items-center gap-3">
+			<input type="hidden" name="active" :value="active ? 'true' : 'false'"/>
+			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
+			<button
+				type="button"
+				@click="active = !active"
+				:class="active ? 'bg-red-50 hover:bg-red-100 border-red-300 text-brand-red' : 'bg-green-50 hover:bg-green-100 border-green-300 text-brand-green'"
+				class="inline-flex items-center gap-1.5 justify-center min-h-[36px] px-4 py-2 border text-sm font-bold rounded-lg transition-colors cursor-pointer"
+			>
+				<span class="w-1.5 h-1.5 rounded-full" :class="active ? 'bg-brand-red' : 'bg-brand-green'"></span>
+				<span x-text="active ? 'Deactivate account' : 'Activate account'"></span>
+			</button>
+		</div>
 	}
-		<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
 	</form>
 }

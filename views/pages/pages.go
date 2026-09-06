@@ -56,3 +56,11 @@ type ProfileData struct {
 	Email    string
 	Error    string
 }
+
+// activeJS renders a Go bool as a JS boolean literal for x-init.
+func activeJS(active bool) string {
+	if active {
+		return "true"
+	}
+	return "false"
+}

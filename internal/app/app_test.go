@@ -207,8 +207,8 @@ func TestInternCreateValidationConflictAndNotFound(t *testing.T) {
 	if detailResponse.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailResponse.Code, http.StatusOK)
 	}
-	if !strings.Contains(detailResponse.Body.String(), "Active account") {
-		t.Errorf("edit form should contain the Active account checkbox")
+	if !strings.Contains(detailResponse.Body.String(), "Deactivate account") {
+		t.Errorf("edit form should contain the Deactivate account button")
 	}
 	duplicate := post("/interns", valid)
 	if duplicate.Code != http.StatusConflict {
