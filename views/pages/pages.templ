@@ -10,9 +10,70 @@ templ DashboardPage() {
 }
 
 templ dashboardBody() {
-	<div class="space-y-1">
-		<h1 class="text-2xl font-bold text-brand-navy">Overview</h1>
-		<p class="text-brand-muted text-sm">Project overview will appear here.</p>
+	<div class="page-heading">
+		<div>
+			<h1>Overview</h1>
+			<p>Monitor intern projects and assigned server ports.</p>
+		</div>
+		<a class="button primary" href="/projects/new">+ Add project</a>
+	</div>
+	<div class="stat-grid">
+		<article><span>Active projects</span><strong>12</strong><small class="positive">+3 this month</small></article>
+		<article><span>Running services</span><strong>11<em>/12</em></strong><small>Reachability snapshot</small></article>
+		<article><span>Used ports</span><strong>11<em>/50</em></strong><small class="warning">1 unknown</small></article>
+		<article><span>Active interns</span><strong>18</strong><small>Current placements</small></article>
+	</div>
+	<div class="two-column">
+		<section class="panel">
+			<div class="panel-head">
+				<div>
+					<h2>Current projects</h2>
+					<p>Open an internal project or view its setup.</p>
+				</div>
+				<a class="table-action" href="/projects">View all</a>
+			</div>
+			<div class="panel-body table-wrap">
+				<table class="hub-table">
+					<thead>
+						<tr>
+							<th>Project</th>
+							<th>Status</th>
+							<th>Main port</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><a class="project-name" href="/projects/internship-management-system">Internship Management System</a></td>
+							<td><span class="badge running">Running</span></td>
+							<td><code class="hub-code">3001</code></td>
+							<td><a class="table-action" href="/projects/internship-management-system">View</a></td>
+						</tr>
+						<tr>
+							<td><a class="project-name" href="/projects/network-monitor">Network Monitor</a></td>
+							<td><span class="badge running">Running</span></td>
+							<td><code class="hub-code">3002</code></td>
+							<td><a class="table-action" href="/projects/network-monitor">View</a></td>
+						</tr>
+						<tr>
+							<td><a class="project-name" href="/projects/hr-portal">HR Portal</a></td>
+							<td><span class="badge down">Down</span></td>
+							<td><code class="hub-code">3003</code></td>
+							<td><a class="table-action" href="/projects/hr-portal">View</a></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+		<section class="panel activity">
+			<div class="panel-head"><h2>Recent activity</h2></div>
+			<ol>
+				<li><time>11:42</time><span><b>Internship Management System</b> became reachable.</span></li>
+				<li><time>11:37</time><span><b>Network Monitor</b> was registered.</span></li>
+				<li class="amber"><time>11:21</time><span>Unknown port <code>3012</code> detected.</span></li>
+				<li class="red"><time>10:54</time><span><b>HR Portal</b> is not reachable.</span></li>
+			</ol>
+		</section>
 	</div>
 }
 
