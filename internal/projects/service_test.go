@@ -21,6 +21,7 @@ func TestCreateListUpdateAssignsInterns(t *testing.T) {
 	created, err := service.Create(context.Background(), CreateInput{
 		Name:      "Demo App",
 		InternIDs: []string{"i1", "i2"},
+		PortCount: 2,
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -30,6 +31,13 @@ func TestCreateListUpdateAssignsInterns(t *testing.T) {
 	}
 	if len(created.Interns) != 2 {
 		t.Fatalf("interns = %d, want 2", len(created.Interns))
+	}
+	ports, err := queries.ListProjectPorts(context.Background(), created.Project.ID)
+	if err != nil {
+		t.Fatalf("ports: %v", err)
+	}
+	if len(ports) != 2 || ports[0].Role != "main" || ports[1].Role != "internal" {
+		t.Fatalf("ports = %+v, want main + internal", ports)
 	}
 
 	listed, err := service.List(context.Background(), "demo", "", -1)
@@ -68,23 +76,26 @@ func TestCreateRejectsInvalidAndConflict(t *testing.T) {
 	service, queries := testService(t)
 	createIntern(t, queries, "i1", "Alice")
 
-	if _, err := service.Create(context.Background(), CreateInput{Name: "X", InternIDs: []string{"i1"}}); err != ErrInvalid {
+	if _, err := service.Create(context.Background(), CreateInput{Name: "X", InternIDs: []string{"i1"}, PortCount: 1}); err != ErrInvalid {
 		t.Fatalf("short name error = %v, want %v", err, ErrInvalid)
 	}
-	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", InternIDs: nil}); err != ErrInvalid {
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", InternIDs: nil, PortCount: 1}); err != ErrInvalid {
 		t.Fatalf("missing interns error = %v, want %v", err, ErrInvalid)
 	}
-	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", InternIDs: []string{"missing"}}); err != ErrInvalid {
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", InternIDs: []string{"missing"}, PortCount: 1}); err != ErrInvalid {
 		t.Fatalf("unknown intern error = %v, want %v", err, ErrInvalid)
 	}
-	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", Slug: "Bad_Slug", InternIDs: []string{"i1"}}); err != ErrInvalid {
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", Slug: "Bad_Slug", InternIDs: []string{"i1"}, PortCount: 1}); err != ErrInvalid {
 		t.Fatalf("bad slug error = %v, want %v", err, ErrInvalid)
 	}
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", Slug: "good-name", InternIDs: []string{"i1"}, PortCount: 6}); err != ErrInvalid {
+		t.Fatalf("port count error = %v, want %v", err, ErrInvalid)
+	}
 
-	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", Slug: "good-name", InternIDs: []string{"i1"}}); err != nil {
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", Slug: "good-name", InternIDs: []string{"i1"}, PortCount: 1}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := service.Create(context.Background(), CreateInput{Name: "Other", Slug: "good-name", InternIDs: []string{"i1"}}); err != ErrConflict {
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Other", Slug: "good-name", InternIDs: []string{"i1"}, PortCount: 1}); err != ErrConflict {
 		t.Fatalf("conflict error = %v, want %v", err, ErrConflict)
 	}
 }
@@ -118,6 +129,7 @@ func testService(t *testing.T) (*Service, *db.Queries) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = database.Close() })
 	if _, err := database.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)

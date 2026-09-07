@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/portd/internal/db/generated"
+	portsvc "github.com/portd/internal/ports"
 )
 
 var (
@@ -59,6 +60,7 @@ type CreateInput struct {
 	InternIDs       []string
 	LifecycleStatus string
 	ShouldRun       bool
+	PortCount       int
 }
 
 type UpdateInput struct {
@@ -132,6 +134,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if err := validateProjectFields(name, slug, lifecycle, in.InternIDs); err != nil {
 		return ProjectWithInterns{}, err
 	}
+	if in.PortCount < 1 || in.PortCount > 5 {
+		return ProjectWithInterns{}, ErrInvalid
+	}
 	if err := s.ensureActiveInterns(ctx, in.InternIDs); err != nil {
 		return ProjectWithInterns{}, err
 	}
@@ -171,6 +176,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 		return ProjectWithInterns{}, err
 	}
 	if err := replaceInterns(ctx, qtx, project.ID, in.InternIDs, now); err != nil {
+		return ProjectWithInterns{}, err
+	}
+	if _, err := portsvc.Allocate(ctx, qtx, project.ID, in.PortCount); err != nil {
 		return ProjectWithInterns{}, err
 	}
 	if err := tx.Commit(); err != nil {

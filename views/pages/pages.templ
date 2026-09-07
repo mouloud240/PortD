@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"strconv"
+
 	"github.com/portd/views/components"
 	"github.com/portd/views/layouts"
 )
@@ -617,6 +619,12 @@ templ projectFormBody(data ProjectFormData) {
 				<option value="archived" selected?={ data.LifecycleStatus == "archived" }>Archived</option>
 			</select>
 		</label>
+		if data.IsNew {
+			<label class="block text-sm font-bold text-slate-700">
+				Ports needed
+				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="ports_needed" type="number" min="1" max="5" value={ strconv.Itoa(portCountOrDefault(data.PortCount)) }/>
+			</label>
+		}
 		<div class="flex flex-wrap items-center gap-3">
 			<input type="hidden" name="should_run" :value="shouldRun ? 'true' : 'false'"/>
 			<button

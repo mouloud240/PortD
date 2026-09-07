@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/portd/internal/httperr"
+	portsvc "github.com/portd/internal/ports"
 	"github.com/portd/views/pages"
 )
 
@@ -51,6 +52,7 @@ func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {
 		Path:            "/projects",
 		Action:          "/projects",
 		LifecycleStatus: "draft",
+		PortCount:       2,
 		IsNew:           true,
 		Interns:         options,
 	}))
@@ -61,6 +63,12 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 		return httperr.BadRequest("Invalid form submission.", err)
 	}
 	shouldRun, _ := strconv.ParseBool(r.FormValue("should_run"))
+	portCount := 2
+	if raw := strings.TrimSpace(r.FormValue("ports_needed")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil {
+			portCount = n
+		}
+	}
 	form := pages.ProjectFormData{
 		Title:           "New project",
 		Path:            "/projects",
@@ -70,6 +78,7 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 		Description:     r.FormValue("description"),
 		LifecycleStatus: r.FormValue("lifecycle_status"),
 		ShouldRun:       shouldRun,
+		PortCount:       portCount,
 		IsNew:           true,
 	}
 	internIDs := r.Form["intern_ids"]
@@ -86,14 +95,18 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 		InternIDs:       internIDs,
 		LifecycleStatus: form.LifecycleStatus,
 		ShouldRun:       form.ShouldRun,
+		PortCount:       portCount,
 	})
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalid):
-			form.Error = "Name, at least one active intern, and a valid lifecycle are required."
+			form.Error = "Name, at least one active intern, a valid lifecycle, and 1–5 ports are required."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.ProjectFormPage(form))
 		case errors.Is(err, ErrConflict):
 			form.Error = "A project with that slug already exists."
+			return httperr.Render(w, r, http.StatusConflict, pages.ProjectFormPage(form))
+		case errors.Is(err, portsvc.ErrNoPorts):
+			form.Error = "Not enough free ports in range 3000–9999 for this project."
 			return httperr.Render(w, r, http.StatusConflict, pages.ProjectFormPage(form))
 		default:
 			return err

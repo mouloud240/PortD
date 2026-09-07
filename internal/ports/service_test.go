@@ -17,12 +17,13 @@ func (s stubScanner) ListeningPorts(ctx context.Context) ([]ListeningPort, error
 	return s.ports, nil
 }
 
-func testDB(t *testing.T) *db.Queries {
+func testDB(t *testing.T) (*sql.DB, *db.Queries) {
 	t.Helper()
 	database, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
+	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = database.Close() })
 	if _, err := database.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
@@ -45,13 +46,11 @@ func testDB(t *testing.T) *db.Queries {
 	if _, err := database.Exec(`INSERT INTO ports (port, project_id, role, created_at) VALUES (3000, 'p1', 'main', 't')`); err != nil {
 		t.Fatal(err)
 	}
-	// Stash raw db for service via queries; service only needs queries.
-	_ = database
-	return queries
+	return database, queries
 }
 
 func TestSnapshotResolvesAndPrunes(t *testing.T) {
-	queries := testDB(t)
+	_, queries := testDB(t)
 	svc := NewService(queries, stubScanner{ports: []ListeningPort{{Port: 3000, PID: 7, ProcessName: "node"}, {Port: 4000}}})
 
 	rows, err := svc.Snapshot(context.Background())

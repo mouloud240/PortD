@@ -253,6 +253,7 @@ func testDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
+	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = database.Close() })
 	return database
 }

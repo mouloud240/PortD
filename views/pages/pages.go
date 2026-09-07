@@ -91,6 +91,7 @@ type ProjectFormData struct {
 	Description     string
 	LifecycleStatus string
 	ShouldRun       bool
+	PortCount       int
 	IsLive          bool
 	IsNew           bool
 	Interns         []InternOption
@@ -148,6 +149,13 @@ func activeJS(active bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func portCountOrDefault(n int) int {
+	if n < 1 || n > 5 {
+		return 2
+	}
+	return n
 }
 
 func lifecycleLabel(status string) string {
