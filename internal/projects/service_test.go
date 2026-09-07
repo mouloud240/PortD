@@ -161,7 +161,7 @@ func testService(t *testing.T) (*Service, *db.Queries) {
 	if _, err := database.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"000001_initial_schema.up.sql", "000002_add_routes.up.sql", "000003_add_local_auth.up.sql"} {
+	for _, name := range []string{"000001_initial_schema.up.sql", "000002_add_routes.up.sql", "000003_add_local_auth.up.sql", "000004_add_healthchecks.up.sql"} {
 		schema, err := os.ReadFile(filepath.Join("..", "db", "migrations", name))
 		if err != nil {
 			t.Fatal(err)
