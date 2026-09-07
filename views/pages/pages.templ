@@ -403,6 +403,27 @@ templ projectDetailBody(data ProjectDetailData) {
 			</div>
 		}
 	</section>
+	<section class="panel">
+		<div class="panel-head"><h2>How to run this project</h2></div>
+		<dl class="hub-dl setup">
+			<div>
+				<dt>1. Open the directory</dt>
+				<dd><code class="hub-code">{ data.Directory }</code></dd>
+			</div>
+			<div>
+				<dt>2. Bind the main port</dt>
+				<dd>Listen on <code class="hub-code">localhost:{ data.MainPort }</code>. Only the main port is exposed through <code class="hub-code">{ data.URLLabel }</code> — do not configure Caddy or expose internal ports yourself.</dd>
+			</div>
+			<div>
+				<dt>3. Start / stop</dt>
+				<dd>Run <code class="hub-code">{ data.StartupCommand }</code> (<code class="hub-code">start.sh</code> on Unix, <code class="hub-code">start.bat</code> on Windows). Stop and restart through PortD: Edit → Should run toggle.</dd>
+			</div>
+			<div>
+				<dt>4. Expected structure</dt>
+				<dd><code class="hub-code">start.sh</code> / <code class="hub-code">start.bat</code> + <code class="hub-code">README.md</code> (ports, URL, run expectations) inside the project directory.</dd>
+			</div>
+		</dl>
+	</section>
 }
 
 templ projectFormBody(data ProjectFormData) {
