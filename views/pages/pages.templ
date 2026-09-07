@@ -361,7 +361,35 @@ templ projectDetailBody(data ProjectDetailData) {
 			</div>
 		</div>
 	</section>
-	<section class="panel" x-data="{ confirmArchive: false }">
+	<section class="panel">
+		<div class="panel-head"><h2>How to run this project</h2></div>
+		<dl class="hub-dl" style="display:grid;gap:20px">
+			<div>
+				<dt>1. Open your folder</dt>
+				<dd>All your files live in <code class="hub-code">{ data.Directory }</code>. Do your work there.</dd>
+			</div>
+			<div>
+				<dt>2. Use only your ports</dt>
+				<dd>
+					if data.MainPort != "—" {
+						Your main port is <code class="hub-code">{ data.MainPort }</code> — make your app listen on <code class="hub-code">localhost:{ data.MainPort }</code>.
+					} else {
+						Make your app listen on your main port (see Project setup below).
+					}
+					Use only the ports given to you. Never take another project's port. Only the main port gets a public link.
+				</dd>
+			</div>
+			<div>
+				<dt>3. Start your project</dt>
+				<dd>Run <code class="hub-code">{ data.StartupCommand }</code> (<code class="hub-code">start.sh</code> on Linux/Mac, <code class="hub-code">start.bat</code> on Windows). To stop it or start it again, use the Should run switch on the Edit page.</dd>
+			</div>
+			<div>
+				<dt>4. Know your files</dt>
+				<dd>Your folder has a start file (<code class="hub-code">start.sh</code> / <code class="hub-code">start.bat</code>) and a <code class="hub-code">README.md</code>. The README lists your ports and URL — read it first.</dd>
+			</div>
+		</dl>
+	</section>
+	<section class="panel" style="margin-top:20px" x-data="{ confirmArchive: false }">
 		<div class="panel-head"><h2>Project setup</h2></div>
 		<dl class="hub-dl setup">
 			<div>
@@ -402,34 +430,6 @@ templ projectDetailBody(data ProjectDetailData) {
 				</div>
 			</div>
 		}
-	</section>
-	<section class="panel">
-		<div class="panel-head"><h2>How to run this project</h2></div>
-		<dl class="hub-dl" style="display:grid;gap:20px">
-			<div>
-				<dt>1. Open your folder</dt>
-				<dd>All your files live in <code class="hub-code">{ data.Directory }</code>. Do your work there.</dd>
-			</div>
-			<div>
-				<dt>2. Use only your ports</dt>
-				<dd>
-					if data.MainPort != "—" {
-						Your main port is <code class="hub-code">{ data.MainPort }</code> — make your app listen on <code class="hub-code">localhost:{ data.MainPort }</code>.
-					} else {
-						Make your app listen on your main port (see Project setup above).
-					}
-					Use only the ports given to you. Never take another project's port. Only the main port gets a public link.
-				</dd>
-			</div>
-			<div>
-				<dt>3. Start your project</dt>
-				<dd>Run <code class="hub-code">{ data.StartupCommand }</code> (<code class="hub-code">start.sh</code> on Linux/Mac, <code class="hub-code">start.bat</code> on Windows). To stop it or start it again, use the Should run switch on the Edit page.</dd>
-			</div>
-			<div>
-				<dt>4. Know your files</dt>
-				<dd>Your folder has a start file (<code class="hub-code">start.sh</code> / <code class="hub-code">start.bat</code>) and a <code class="hub-code">README.md</code>. The README lists your ports and URL — read it first.</dd>
-			</div>
-		</dl>
 	</section>
 }
 
