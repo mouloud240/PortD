@@ -3,6 +3,7 @@ package projects
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -213,6 +214,119 @@ func (s *Service) ArchivePost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	http.Redirect(w, r, "/projects/"+archived.Project.Slug, http.StatusSeeOther)
+	return nil
+}
+
+func (s *Service) PromotePortPost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	slug := r.PathValue("slug")
+	port, ok := parsePort(r.FormValue("port"))
+	if !ok {
+		return s.portBack(w, r, slug, portsvc.ErrOutOfRange)
+	}
+	if err := s.PromotePort(r.Context(), slug, port); err != nil {
+		return s.portBack(w, r, slug, err)
+	}
+	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
+	return nil
+}
+
+func (s *Service) AllocatePortsPost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	slug := r.PathValue("slug")
+	n := 1
+	if raw := strings.TrimSpace(r.FormValue("count")); raw != "" {
+		var err error
+		n, err = strconv.Atoi(raw)
+		if err != nil {
+			return s.portBack(w, r, slug, ErrInvalid)
+		}
+	}
+	if err := s.AddPorts(r.Context(), slug, n); err != nil {
+		return s.portBack(w, r, slug, err)
+	}
+	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
+	return nil
+}
+
+func (s *Service) ReleasePortPost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	slug := r.PathValue("slug")
+	port, ok := parsePort(r.FormValue("port"))
+	if !ok {
+		return s.portBack(w, r, slug, portsvc.ErrOutOfRange)
+	}
+	if err := s.ReleasePort(r.Context(), slug, port); err != nil {
+		return s.portBack(w, r, slug, err)
+	}
+	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
+	return nil
+}
+
+func (s *Service) ClaimPortPost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	slug := r.PathValue("slug")
+	port, err := strconv.Atoi(strings.TrimSpace(r.FormValue("port")))
+	if err != nil {
+		return s.portBack(w, r, slug, ErrInvalid)
+	}
+	if err := s.ClaimPort(r.Context(), slug, port); err != nil {
+		return s.portBack(w, r, slug, err)
+	}
+	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
+	return nil
+}
+
+func parsePort(raw string) (int64, bool) {
+	port, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || port < 1 || port > 65535 {
+		return 0, false
+	}
+	return port, true
+}
+
+func portBackURL(r *http.Request, slug string) string {
+	if next := r.FormValue("next"); strings.HasPrefix(next, "/projects/") {
+		return next
+	}
+	return "/projects/" + slug
+}
+
+func (s *Service) portBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
+	if errors.Is(err, ErrNotFound) || errors.Is(err, portsvc.ErrNotFound) {
+		return httperr.NotFound("Project not found.", err)
+	}
+	msg := "Port action failed."
+	switch {
+	case errors.Is(err, ErrInvalid):
+		msg = "Count must be between 1 and 5."
+	case errors.Is(err, portsvc.ErrNoPorts):
+		msg = "Not enough free ports in range 3000–9999."
+	case errors.Is(err, portsvc.ErrPortTaken):
+		msg = "That port is already taken."
+	case errors.Is(err, portsvc.ErrOutOfRange):
+		msg = "Port must be between 3000 and 9999."
+	case errors.Is(err, portsvc.ErrMainPort):
+		msg = "Promote another port to main before releasing this one."
+	case errors.Is(err, portsvc.ErrPortLive):
+		msg = "That port is in use. Stop the process first."
+	default:
+		return err
+	}
+	next := portBackURL(r, slug)
+	sep := "?"
+	if strings.Contains(next, "?") {
+		sep = "&"
+	}
+	http.Redirect(w, r, next+sep+"port_error="+url.QueryEscape(msg), http.StatusSeeOther)
 	return nil
 }
 

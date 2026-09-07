@@ -276,6 +276,61 @@ func (s *Service) Archive(ctx context.Context, slug string) (ProjectWithInterns,
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
 }
 
+func (s *Service) projectIDBySlug(ctx context.Context, slug string) (string, error) {
+	project, err := s.queries.GetProjectBySlug(ctx, slug)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return project.ID, nil
+}
+
+func (s *Service) AddPorts(ctx context.Context, slug string, n int) error {
+	if n < 1 || n > 5 {
+		return ErrInvalid
+	}
+	projectID, err := s.projectIDBySlug(ctx, slug)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := portsvc.Allocate(ctx, s.queries.WithTx(tx), projectID, n); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Service) ClaimPort(ctx context.Context, slug string, port int) error {
+	projectID, err := s.projectIDBySlug(ctx, slug)
+	if err != nil {
+		return err
+	}
+	_, err = portsvc.ClaimPort(ctx, s.queries, projectID, port)
+	return err
+}
+
+func (s *Service) ReleasePort(ctx context.Context, slug string, port int64) error {
+	projectID, err := s.projectIDBySlug(ctx, slug)
+	if err != nil {
+		return err
+	}
+	return portsvc.ReleasePort(ctx, s.queries, projectID, port)
+}
+
+func (s *Service) PromotePort(ctx context.Context, slug string, port int64) error {
+	projectID, err := s.projectIDBySlug(ctx, slug)
+	if err != nil {
+		return err
+	}
+	return portsvc.PromoteMain(ctx, s.db, s.queries, projectID, port)
+}
+
 func validateProjectFields(name, slug, lifecycle string, internIDs []string) error {
 	if len(name) < 2 || len(name) > 80 {
 		return ErrInvalid
