@@ -405,22 +405,29 @@ templ projectDetailBody(data ProjectDetailData) {
 	</section>
 	<section class="panel">
 		<div class="panel-head"><h2>How to run this project</h2></div>
-		<dl class="hub-dl setup">
+		<dl class="hub-dl" style="display:grid;gap:20px">
 			<div>
-				<dt>1. Open the directory</dt>
-				<dd><code class="hub-code">{ data.Directory }</code></dd>
+				<dt>1. Open your folder</dt>
+				<dd>All your files live in <code class="hub-code">{ data.Directory }</code>. Do your work there.</dd>
 			</div>
 			<div>
-				<dt>2. Bind the main port</dt>
-				<dd>Listen on <code class="hub-code">localhost:{ data.MainPort }</code>. Only the main port is exposed through <code class="hub-code">{ data.URLLabel }</code> — do not configure Caddy or expose internal ports yourself.</dd>
+				<dt>2. Use only your ports</dt>
+				<dd>
+					if data.MainPort != "—" {
+						Your main port is <code class="hub-code">{ data.MainPort }</code> — make your app listen on <code class="hub-code">localhost:{ data.MainPort }</code>.
+					} else {
+						Make your app listen on your main port (see Project setup above).
+					}
+					Use only the ports given to you. Never take another project's port. Only the main port gets a public link.
+				</dd>
 			</div>
 			<div>
-				<dt>3. Start / stop</dt>
-				<dd>Run <code class="hub-code">{ data.StartupCommand }</code> (<code class="hub-code">start.sh</code> on Unix, <code class="hub-code">start.bat</code> on Windows). Stop and restart through PortD: Edit → Should run toggle.</dd>
+				<dt>3. Start your project</dt>
+				<dd>Run <code class="hub-code">{ data.StartupCommand }</code> (<code class="hub-code">start.sh</code> on Linux/Mac, <code class="hub-code">start.bat</code> on Windows). To stop it or start it again, use the Should run switch on the Edit page.</dd>
 			</div>
 			<div>
-				<dt>4. Expected structure</dt>
-				<dd><code class="hub-code">start.sh</code> / <code class="hub-code">start.bat</code> + <code class="hub-code">README.md</code> (ports, URL, run expectations) inside the project directory.</dd>
+				<dt>4. Know your files</dt>
+				<dd>Your folder has a start file (<code class="hub-code">start.sh</code> / <code class="hub-code">start.bat</code>) and a <code class="hub-code">README.md</code>. The README lists your ports and URL — read it first.</dd>
 			</div>
 		</dl>
 	</section>
