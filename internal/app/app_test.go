@@ -264,6 +264,93 @@ func testHandler(t *testing.T, database *sql.DB, authService *auth.Service) http
 	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries))
 }
 
+func TestInternSeesAndManagesOwnProjects(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	initDB(t, database)
+	queries := db.New(database)
+	authService := auth.NewService(queries, "admin", "admin-password")
+	internService := internsvc.NewService(queries)
+	projectService := projectsvc.NewService(database, queries, "https://portd.example.test")
+	handler := NewHandler(authService, internService, projectService, testPorts(queries))
+	ctx := context.Background()
+
+	mkIntern := func(name, identifier string) {
+		t.Helper()
+		if _, err := internService.Create(ctx, name, identifier+"@example.com", identifier, "secret-123"); err != nil {
+			t.Fatalf("create intern %s: %v", identifier, err)
+		}
+	}
+	mkIntern("Amine M", "amine")
+	mkIntern("Sara K", "sara")
+	amine, err := queries.GetActiveInternByIdentifier(ctx, sql.NullString{String: "amine", Valid: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sara, err := queries.GetActiveInternByIdentifier(ctx, sql.NullString{String: "sara", Valid: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mkProject := func(name, slug, internID string) {
+		t.Helper()
+		if _, err := projectService.Create(ctx, projectsvc.CreateInput{Name: name, Slug: slug, InternIDs: []string{internID}, PortCount: 1}); err != nil {
+			t.Fatalf("create project %s: %v", slug, err)
+		}
+	}
+	mkProject("Amine App", "amine-app", amine.ID)
+	mkProject("Sara App", "sara-app", sara.ID)
+
+	session, err := authService.Login(ctx, "amine", "secret-123")
+	if err != nil {
+		t.Fatalf("intern login: %v", err)
+	}
+	get := func(path string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	list := get("/projects")
+	if list.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d", list.Code, http.StatusOK)
+	}
+	if body := list.Body.String(); !strings.Contains(body, "amine-app") || strings.Contains(body, "sara-app") {
+		t.Fatalf("intern list leaks or hides projects")
+	}
+	if detail := get("/projects/amine-app"); detail.Code != http.StatusOK {
+		t.Fatalf("own detail status = %d, want %d", detail.Code, http.StatusOK)
+	}
+	if foreign := get("/projects/sara-app"); foreign.Code != http.StatusForbidden {
+		t.Fatalf("foreign detail status = %d, want %d", foreign.Code, http.StatusForbidden)
+	}
+
+	form := url.Values{"name": {"Self Made"}, "description": {"intern created"}}
+	request := httptest.NewRequest(http.MethodPost, "/projects", strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
+	created := httptest.NewRecorder()
+	handler.ServeHTTP(created, request)
+	if created.Code != http.StatusSeeOther {
+		t.Fatalf("intern create status = %d, want %d", created.Code, http.StatusSeeOther)
+	}
+	own, err := projectService.GetBySlug(ctx, "self-made")
+	if err != nil {
+		t.Fatalf("created project missing: %v", err)
+	}
+	member := false
+	for _, intern := range own.Interns {
+		if intern.ID == amine.ID {
+			member = true
+		}
+	}
+	if !member {
+		t.Fatalf("creator was not assigned to own project")
+	}
+}
+
 type stubPortScanner struct{}
 
 func (stubPortScanner) ListeningPorts(ctx context.Context) ([]portsvc.ListeningPort, error) {

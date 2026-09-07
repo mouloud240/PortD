@@ -223,12 +223,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if lifecycle == "" {
 		lifecycle = "draft"
 	}
-	if err := validateProjectFields(name, slug, lifecycle, in.InternIDs); err != nil {
-		return ProjectWithInterns{}, err
-	}
-	if in.PortCount < 1 || in.PortCount > 5 {
-		return ProjectWithInterns{}, ErrInvalid
-	}
 	internIDs := in.InternIDs
 	if in.CreatorInternID != "" {
 		creatorIncluded := false
@@ -241,6 +235,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 		if !creatorIncluded {
 			internIDs = append(internIDs, in.CreatorInternID)
 		}
+	}
+	if err := validateProjectFields(name, slug, lifecycle, internIDs); err != nil {
+		return ProjectWithInterns{}, err
+	}
+	if in.PortCount < 1 || in.PortCount > 5 {
+		return ProjectWithInterns{}, ErrInvalid
 	}
 	if err := s.ensureActiveInterns(ctx, internIDs); err != nil {
 		return ProjectWithInterns{}, err
