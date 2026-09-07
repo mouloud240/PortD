@@ -43,7 +43,7 @@ views/pages/pages_templ.go           (generated, committed)
 | Route | Handler | Component |
 |---|---|---|
 | `GET /`, `GET /dashboard` | `app.dashboard` | `pages.DashboardPage()` |
-| `GET /projects`, `/projects/tracking`, `/projects/new`, `/ports`, `/activity` | `app.placeholder(title)` | `pages.PlaceholderPage(title, r.URL.Path)` |
+| `GET /projects`, `/ports`, `/activity` | `app.placeholder(title)` | `pages.PlaceholderPage(title, r.URL.Path)` |
 | `GET /login` | `auth.LoginPage` | `pages.LoginPage("")` |
 | `POST /login` | `auth.LoginPost` | `pages.LoginPage(msg)` on 401, else redirect `/dashboard` (303) |
 | `POST /logout` | `auth.LogoutPost` | redirect `/login` (303) |

@@ -24,7 +24,7 @@ func NewHandler(authService *auth.Service, internService *internsvc.Service) htt
 	mux.Handle("GET /dashboard", httperr.Handle(requireSession(authService, dashboard)))
 	mux.Handle("GET /profile", httperr.Handle(requireSession(authService, profilePage(authService, internService))))
 	mux.Handle("POST /profile", httperr.Handle(requireSession(authService, profileUpdate(authService, internService))))
-	for path, title := range map[string]string{"/projects": "All projects", "/projects/tracking": "Project tracking", "/projects/new": "Add project", "/ports": "Port table", "/activity": "Activity"} {
+	for path, title := range map[string]string{"/projects": "Projects", "/ports": "Port table", "/activity": "Activity"} {
 		mux.Handle("GET "+path, httperr.Handle(requireSession(authService, placeholder(title))))
 	}
 	admin := func(next httperr.Handler) httperr.Handler { return requireAdmin(authService, next) }

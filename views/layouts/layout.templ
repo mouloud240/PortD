@@ -27,9 +27,7 @@ templ Shell(title string, path string, body templ.Component) {
 					<nav class="flex flex-col gap-1">
 						<a class={ "flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors", navClass(path, "/dashboard") } href="/dashboard">Overview</a>
 						<p class="mt-5 mb-1 px-2.5 text-xs font-bold text-slate-400 tracking-wider uppercase">Projects</p>
-						<a class={ "flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors", navClass(path, "/projects") } href="/projects">All projects</a>
-						<a class={ "flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors", navClass(path, "/projects/tracking") } href="/projects/tracking">Project tracking</a>
-						<a class={ "flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors", navClass(path, "/projects/new") } href="/projects/new">Add project</a>
+						<a class={ "flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors", navClass(path, "/projects") } href="/projects">Projects</a>
 						<p class="mt-5 mb-1 px-2.5 text-xs font-bold text-slate-400 tracking-wider uppercase">Infrastructure</p>
 						<a class={ "flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors", navClass(path, "/ports") } href="/ports">Port table</a>
 						<p class="mt-5 mb-1 px-2.5 text-xs font-bold text-slate-400 tracking-wider uppercase">People</p>
