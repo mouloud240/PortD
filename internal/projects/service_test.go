@@ -1,0 +1,138 @@
+package projects
+
+import (
+	"context"
+	"database/sql"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	db "github.com/portd/internal/db/generated"
+	_ "modernc.org/sqlite"
+)
+
+func TestCreateListUpdateAssignsInterns(t *testing.T) {
+	t.Parallel()
+	service, queries := testService(t)
+	createIntern(t, queries, "i1", "Alice")
+	createIntern(t, queries, "i2", "Bob")
+
+	created, err := service.Create(context.Background(), CreateInput{
+		Name:      "Demo App",
+		InternIDs: []string{"i1", "i2"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if created.Project.Slug != "demo-app" || created.Project.LifecycleStatus != "draft" {
+		t.Fatalf("created = %+v", created.Project)
+	}
+	if len(created.Interns) != 2 {
+		t.Fatalf("interns = %d, want 2", len(created.Interns))
+	}
+
+	listed, err := service.List(context.Background(), "demo", "", -1)
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("list: %v len=%d", err, len(listed))
+	}
+
+	updated, err := service.Update(context.Background(), "demo-app", UpdateInput{
+		Name:            "Demo App",
+		Description:     "updated",
+		InternIDs:       []string{"i1"},
+		LifecycleStatus: "ready",
+		ShouldRun:       true,
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.Project.LifecycleStatus != "ready" || updated.Project.ShouldRun != 1 || updated.Project.Description != "updated" {
+		t.Fatalf("updated = %+v", updated.Project)
+	}
+	if len(updated.Interns) != 1 || updated.Interns[0].ID != "i1" {
+		t.Fatalf("interns = %+v", updated.Interns)
+	}
+}
+
+func TestCreateRejectsInvalidAndConflict(t *testing.T) {
+	t.Parallel()
+	service, queries := testService(t)
+	createIntern(t, queries, "i1", "Alice")
+
+	if _, err := service.Create(context.Background(), CreateInput{Name: "X", InternIDs: []string{"i1"}}); err != ErrInvalid {
+		t.Fatalf("short name error = %v, want %v", err, ErrInvalid)
+	}
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", InternIDs: nil}); err != ErrInvalid {
+		t.Fatalf("missing interns error = %v, want %v", err, ErrInvalid)
+	}
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", InternIDs: []string{"missing"}}); err != ErrInvalid {
+		t.Fatalf("unknown intern error = %v, want %v", err, ErrInvalid)
+	}
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", Slug: "Bad_Slug", InternIDs: []string{"i1"}}); err != ErrInvalid {
+		t.Fatalf("bad slug error = %v, want %v", err, ErrInvalid)
+	}
+
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Good Name", Slug: "good-name", InternIDs: []string{"i1"}}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := service.Create(context.Background(), CreateInput{Name: "Other", Slug: "good-name", InternIDs: []string{"i1"}}); err != ErrConflict {
+		t.Fatalf("conflict error = %v, want %v", err, ErrConflict)
+	}
+}
+
+func TestGetBySlugNotFound(t *testing.T) {
+	t.Parallel()
+	service, _ := testService(t)
+	if _, err := service.GetBySlug(context.Background(), "missing"); err != ErrNotFound {
+		t.Fatalf("error = %v, want %v", err, ErrNotFound)
+	}
+}
+
+func TestSlugify(t *testing.T) {
+	t.Parallel()
+	if got := slugify(" Hello World! "); got != "hello-world" {
+		t.Fatalf("slugify = %q", got)
+	}
+}
+
+func testService(t *testing.T) (*Service, *db.Queries) {
+	t.Helper()
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	if _, err := database.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"000001_initial_schema.up.sql", "000002_add_routes.up.sql", "000003_add_local_auth.up.sql"} {
+		schema, err := os.ReadFile(filepath.Join("..", "db", "migrations", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := database.Exec(string(schema)); err != nil {
+			t.Fatalf("apply %s: %v", name, err)
+		}
+	}
+	queries := db.New(database)
+	return NewService(database, queries), queries
+}
+
+func createIntern(t *testing.T, queries *db.Queries, id, name string) {
+	t.Helper()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	_, err := queries.CreateIntern(context.Background(), db.CreateInternParams{
+		ID:           id,
+		FullName:     name,
+		Email:        sql.NullString{String: id + "@example.com", Valid: true},
+		Identifier:   sql.NullString{String: id, Valid: true},
+		PasswordHash: "hash",
+		Active:       1,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
