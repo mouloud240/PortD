@@ -16,6 +16,7 @@ import (
 	"github.com/portd/internal/config"
 	"github.com/portd/internal/db/generated"
 	internsvc "github.com/portd/internal/interns"
+	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
 	_ "modernc.org/sqlite"
 )
@@ -37,7 +38,7 @@ func main() {
 	queries := db.New(database)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           app.NewHandler(auth.NewService(queries, cfg.AdminUsername, cfg.AdminPassword), internsvc.NewService(queries), projectsvc.NewService(database, queries, cfg.BaseURL)),
+		Handler:           app.NewHandler(auth.NewService(queries, cfg.AdminUsername, cfg.AdminPassword), internsvc.NewService(queries), projectsvc.NewService(database, queries, cfg.BaseURL), portsvc.NewService(queries, portsvc.NewGopsutilScanner())),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

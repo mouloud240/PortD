@@ -9,12 +9,13 @@ import (
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/httperr"
 	internsvc "github.com/portd/internal/interns"
+	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
 	"github.com/portd/views/pages"
 )
 
 // NewHandler returns the root HTTP handler for PortD.
-func NewHandler(authService *auth.Service, internService *internsvc.Service, projectService *projectsvc.Service) http.Handler {
+func NewHandler(authService *auth.Service, internService *internsvc.Service, projectService *projectsvc.Service, portService *portsvc.Service) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.Handle("GET /healthz", httperr.Handle(healthz))
@@ -25,9 +26,10 @@ func NewHandler(authService *auth.Service, internService *internsvc.Service, pro
 	mux.Handle("GET /dashboard", httperr.Handle(requireSession(authService, dashboard)))
 	mux.Handle("GET /profile", httperr.Handle(requireSession(authService, profilePage(authService, internService))))
 	mux.Handle("POST /profile", httperr.Handle(requireSession(authService, profileUpdate(authService, internService))))
-	for path, title := range map[string]string{"/ports": "Port table", "/activity": "Activity"} {
+	for path, title := range map[string]string{"/activity": "Activity"} {
 		mux.Handle("GET "+path, httperr.Handle(requireSession(authService, placeholder(title))))
 	}
+	mux.Handle("GET /ports", httperr.Handle(requireSession(authService, portService.ListPage)))
 	admin := func(next httperr.Handler) httperr.Handler { return requireAdmin(authService, next) }
 	mux.Handle("GET /projects", httperr.Handle(admin(projectService.ListPage)))
 	mux.Handle("GET /projects/new", httperr.Handle(admin(projectService.NewPage)))

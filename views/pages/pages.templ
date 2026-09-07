@@ -337,6 +337,74 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 	</section>
 }
 
+templ PortsPage(data PortsPageData) {
+	@layouts.Shell("Port table", data.Path, portsBody(data))
+}
+
+templ portsBody(data PortsPageData) {
+	<div class="page-heading">
+		<div>
+			<h1>Port table</h1>
+			<p>A manually refreshable view of registered and observed processes.</p>
+		</div>
+		<a class="button secondary" href="/ports">↻ Refresh table</a>
+	</div>
+	<section class="panel">
+		<p class="px-5 pt-4 text-xs text-brand-muted">
+			if data.CheckedAt != "" {
+				Last checked { data.CheckedAt }.
+			}
+			if data.Unknown > 0 {
+				{ data.Unknown } unregistered.
+			}
+			This is visibility only; the hub does not resolve conflicts automatically.
+		</p>
+		<div class="panel-body table-wrap">
+			<table class="hub-table">
+				<thead>
+					<tr>
+						<th>Port</th>
+						<th>Process</th>
+						<th>Registered project</th>
+						<th>Intern</th>
+						<th>State</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range data.Rows {
+						<tr>
+							<td><code class="hub-code">{ row.Port }</code></td>
+							<td>{ row.Process }</td>
+							<td>
+								if row.Registered {
+									<a class="project-name" href={ "/projects/" + row.ProjectSlug }>{ row.Project }</a>
+								} else {
+									—
+								}
+							</td>
+							<td>{ row.Interns }</td>
+							<td>
+								if row.Registered {
+									<span class="badge running">Registered</span>
+								} else {
+									<span class="badge warning">Unregistered</span>
+								}
+							</td>
+						</tr>
+					}
+					if len(data.Rows) == 0 {
+						<tr>
+							<td colspan="5">
+								<div class="empty-state">No port data available. Click Refresh to scan.</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</section>
+}
+
 templ ProjectFormPage(data ProjectFormData) {
 	@layouts.Shell(data.Title, data.Path, projectFormBody(data))
 }

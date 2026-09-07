@@ -14,6 +14,7 @@ import (
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/db/generated"
 	internsvc "github.com/portd/internal/interns"
+	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
 	_ "modernc.org/sqlite"
 )
@@ -77,7 +78,7 @@ func TestPlaceholderPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test")).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -107,7 +108,7 @@ func TestInternsListPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test")).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -137,7 +138,7 @@ func TestInternNewPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test")).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -168,7 +169,7 @@ func TestInternCreateValidationConflictAndNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"))
+	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries))
 	post := func(path string, form url.Values) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -259,5 +260,15 @@ func testDB(t *testing.T) *sql.DB {
 func testHandler(t *testing.T, database *sql.DB, authService *auth.Service) http.Handler {
 	t.Helper()
 	queries := db.New(database)
-	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"))
+	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries))
+}
+
+type stubPortScanner struct{}
+
+func (stubPortScanner) ListeningPorts(ctx context.Context) ([]portsvc.ListeningPort, error) {
+	return nil, nil
+}
+
+func testPorts(queries *db.Queries) *portsvc.Service {
+	return portsvc.NewService(queries, stubPortScanner{})
 }

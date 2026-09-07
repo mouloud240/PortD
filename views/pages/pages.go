@@ -32,16 +32,16 @@ func ListItems(interns []db.Intern) []InternListItem {
 // the current URL, so the new-intern form would hit POST /interns/{id} with
 // id="new" instead of creating anything.
 type InternFormData struct {
-	Title            string
-	Path             string
-	Action           string
-	Error            string
-	ID               string
-	FullName         string
-	Identifier       string
-	Email            string
-	Active           bool
-	IsNew            bool
+	Title      string
+	Path       string
+	Action     string
+	Error      string
+	ID         string
+	FullName   string
+	Identifier string
+	Email      string
+	Active     bool
+	IsNew      bool
 }
 
 // ProfileData is the finished profile value; admins get a read-only view,
@@ -59,18 +59,18 @@ type ProfileData struct {
 
 // ProjectListItem is one row on the projects directory.
 type ProjectListItem struct {
-	Name             string
-	Slug             string
-	Interns          string
-	StatusLabel      string
-	StatusClass      string
-	LifecycleStatus  string
-	LifecycleLabel   string
-	LifecycleClass   string
-	MainPort         string
-	URL              string
-	URLLabel         string
-	UpdatedAt        string
+	Name            string
+	Slug            string
+	Interns         string
+	StatusLabel     string
+	StatusClass     string
+	LifecycleStatus string
+	LifecycleLabel  string
+	LifecycleClass  string
+	MainPort        string
+	URL             string
+	URLLabel        string
+	UpdatedAt       string
 }
 
 // InternOption is a selectable intern on the project form.
@@ -120,6 +120,26 @@ type ProjectDetailData struct {
 	URLLabel        string
 	MainPort        string
 	Archived        bool
+}
+
+// PortRow is one observed listening port, enriched for display.
+// ProjectID empty means the port is not registered to any project.
+type PortRow struct {
+	Port        string
+	Process     string
+	ProjectID   string
+	Project     string
+	ProjectSlug string
+	Interns     string
+	Registered  bool
+}
+
+// PortsPageData is the finished port table value.
+type PortsPageData struct {
+	Path      string
+	CheckedAt string
+	Unknown   int
+	Rows      []PortRow
 }
 
 // activeJS renders a Go bool as a JS boolean literal for x-init.
