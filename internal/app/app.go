@@ -9,11 +9,12 @@ import (
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/httperr"
 	internsvc "github.com/portd/internal/interns"
+	projectsvc "github.com/portd/internal/projects"
 	"github.com/portd/views/pages"
 )
 
 // NewHandler returns the root HTTP handler for PortD.
-func NewHandler(authService *auth.Service, internService *internsvc.Service) http.Handler {
+func NewHandler(authService *auth.Service, internService *internsvc.Service, projectService *projectsvc.Service) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.Handle("GET /healthz", httperr.Handle(healthz))
@@ -24,10 +25,15 @@ func NewHandler(authService *auth.Service, internService *internsvc.Service) htt
 	mux.Handle("GET /dashboard", httperr.Handle(requireSession(authService, dashboard)))
 	mux.Handle("GET /profile", httperr.Handle(requireSession(authService, profilePage(authService, internService))))
 	mux.Handle("POST /profile", httperr.Handle(requireSession(authService, profileUpdate(authService, internService))))
-	for path, title := range map[string]string{"/projects": "Projects", "/ports": "Port table", "/activity": "Activity"} {
+	for path, title := range map[string]string{"/ports": "Port table", "/activity": "Activity"} {
 		mux.Handle("GET "+path, httperr.Handle(requireSession(authService, placeholder(title))))
 	}
 	admin := func(next httperr.Handler) httperr.Handler { return requireAdmin(authService, next) }
+	mux.Handle("GET /projects", httperr.Handle(admin(projectService.ListPage)))
+	mux.Handle("GET /projects/new", httperr.Handle(admin(projectService.NewPage)))
+	mux.Handle("POST /projects", httperr.Handle(admin(projectService.CreatePost)))
+	mux.Handle("GET /projects/{slug}/edit", httperr.Handle(admin(projectService.EditPage)))
+	mux.Handle("POST /projects/{slug}", httperr.Handle(admin(projectService.UpdatePost)))
 	mux.Handle("GET /interns", httperr.Handle(admin(internService.ListPage)))
 	mux.Handle("GET /interns/new", httperr.Handle(admin(internService.NewPage)))
 	mux.Handle("POST /interns", httperr.Handle(admin(internService.CreatePost)))

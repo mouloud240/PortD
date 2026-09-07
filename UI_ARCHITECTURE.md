@@ -43,12 +43,17 @@ views/pages/pages_templ.go           (generated, committed)
 | Route | Handler | Component |
 |---|---|---|
 | `GET /`, `GET /dashboard` | `app.dashboard` | `pages.DashboardPage()` |
-| `GET /projects`, `/ports`, `/activity` | `app.placeholder(title)` | `pages.PlaceholderPage(title, r.URL.Path)` |
+| `GET /ports`, `/activity` | `app.placeholder(title)` | `pages.PlaceholderPage(title, r.URL.Path)` |
 | `GET /login` | `auth.LoginPage` | `pages.LoginPage("")` |
 | `POST /login` | `auth.LoginPost` | `pages.LoginPage(msg)` on 401, else redirect `/dashboard` (303) |
 | `POST /logout` | `auth.LogoutPost` | redirect `/login` (303) |
 | `GET /profile` | `app.profilePage` | `pages.ProfilePage(ProfileData)` (own record, editable for interns; read-only for admin) |
 | `POST /profile` | `app.profileUpdate` | re-render `ProfilePage` on 422/409, else redirect `/profile` (303); admins redirect (303) unchanged |
+| `GET /projects` | `projects.ListPage` | `pages.ProjectsPage(...)` |
+| `GET /projects/new` | `projects.NewPage` | `pages.ProjectFormPage(...)` |
+| `POST /projects` | `projects.CreatePost` | re-render on 422/409, else redirect `/projects/{slug}/edit` (303) |
+| `GET /projects/{slug}/edit` | `projects.EditPage` | `pages.ProjectFormPage(...)` or 404 |
+| `POST /projects/{slug}` | `projects.UpdatePost` | re-render on 422, 404 if gone, else redirect (303) |
 | `GET /interns` | `interns.ListPage` | `pages.InternsPage("Interns", path, q, ListItems(rows))` |
 | `GET /interns/new` | `interns.NewPage` | `pages.InternFormPage(New InternFormData{IsNew:true})` |
 | `POST /interns` | `interns.CreatePost` | re-render `InternFormPage` on 422/409, else redirect `/interns/{id}` (303) |

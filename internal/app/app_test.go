@@ -14,6 +14,7 @@ import (
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/db/generated"
 	internsvc "github.com/portd/internal/interns"
+	projectsvc "github.com/portd/internal/projects"
 	_ "modernc.org/sqlite"
 )
 
@@ -23,8 +24,9 @@ func TestHealthz(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	response := httptest.NewRecorder()
 
-	queries := db.New(testDB(t))
-	NewHandler(auth.NewService(queries, "admin", "admin-password"), internsvc.NewService(queries)).ServeHTTP(response, request)
+	database := testDB(t)
+	queries := db.New(database)
+	testHandler(t, database, auth.NewService(queries, "admin", "admin-password")).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -40,8 +42,9 @@ func TestLoginPage(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/login", nil)
 	response := httptest.NewRecorder()
 
-	queries := db.New(testDB(t))
-	NewHandler(auth.NewService(queries, "admin", "admin-password"), internsvc.NewService(queries)).ServeHTTP(response, request)
+	database := testDB(t)
+	queries := db.New(database)
+	testHandler(t, database, auth.NewService(queries, "admin", "admin-password")).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -74,7 +77,7 @@ func TestPlaceholderPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -104,7 +107,7 @@ func TestInternsListPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -134,7 +137,7 @@ func TestInternNewPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -165,7 +168,7 @@ func TestInternCreateValidationConflictAndNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	handler := NewHandler(authService, internsvc.NewService(queries))
+	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries))
 	post := func(path string, form url.Values) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -251,4 +254,10 @@ func testDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	return database
+}
+
+func testHandler(t *testing.T, database *sql.DB, authService *auth.Service) http.Handler {
+	t.Helper()
+	queries := db.New(database)
+	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries))
 }
