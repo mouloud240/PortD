@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/google/uuid"
+	"github.com/portd/internal/auth"
 	db "github.com/portd/internal/db/generated"
 	portsvc "github.com/portd/internal/ports"
 )
@@ -61,6 +62,7 @@ type CreateInput struct {
 	LifecycleStatus string
 	ShouldRun       bool
 	PortCount       int
+	CreatorInternID string
 }
 
 type UpdateInput struct {
@@ -91,6 +93,34 @@ func (s *Service) List(ctx context.Context, search, lifecycleStatus string, isLi
 	if err != nil {
 		return nil, err
 	}
+	return s.withInterns(ctx, rows)
+}
+
+func (s *Service) ListForIntern(ctx context.Context, internID, search, lifecycleStatus string, isLive int64) ([]ProjectWithInterns, error) {
+	search = strings.TrimSpace(search)
+	if lifecycleStatus != "" {
+		if _, ok := lifecycleAllowed[lifecycleStatus]; !ok {
+			return nil, ErrInvalid
+		}
+	}
+	rows, err := s.queries.ListInternProjects(ctx, db.ListInternProjectsParams{
+		InternID:        internID,
+		Column2:         search,
+		Column3:         sql.NullString{String: search, Valid: true},
+		Column4:         sql.NullString{String: search, Valid: true},
+		Column5:         sql.NullString{String: search, Valid: true},
+		Column6:         lifecycleStatus,
+		LifecycleStatus: lifecycleStatus,
+		Column8:         isLive,
+		IsLive:          isLive,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return s.withInterns(ctx, rows)
+}
+
+func (s *Service) withInterns(ctx context.Context, rows []db.Project) ([]ProjectWithInterns, error) {
 	out := make([]ProjectWithInterns, 0, len(rows))
 	for _, project := range rows {
 		interns, err := s.queries.ListProjectInterns(ctx, project.ID)
@@ -100,6 +130,27 @@ func (s *Service) List(ctx context.Context, search, lifecycleStatus string, isLi
 		out = append(out, ProjectWithInterns{Project: project, Interns: interns})
 	}
 	return out, nil
+}
+
+func (s *Service) CanManage(ctx context.Context, slug string, principal auth.Principal) (bool, error) {
+	if principal.IsAdmin() {
+		return true, nil
+	}
+	if principal.InternID == "" {
+		return false, nil
+	}
+	project, err := s.queries.GetProjectBySlug(ctx, slug)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	count, err := s.queries.IsProjectMember(ctx, db.IsProjectMemberParams{ProjectID: project.ID, InternID: principal.InternID})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (s *Service) GetBySlug(ctx context.Context, slug string) (ProjectWithInterns, error) {
@@ -178,7 +229,20 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if in.PortCount < 1 || in.PortCount > 5 {
 		return ProjectWithInterns{}, ErrInvalid
 	}
-	if err := s.ensureActiveInterns(ctx, in.InternIDs); err != nil {
+	internIDs := in.InternIDs
+	if in.CreatorInternID != "" {
+		creatorIncluded := false
+		for _, id := range internIDs {
+			if strings.TrimSpace(id) == in.CreatorInternID {
+				creatorIncluded = true
+				break
+			}
+		}
+		if !creatorIncluded {
+			internIDs = append(internIDs, in.CreatorInternID)
+		}
+	}
+	if err := s.ensureActiveInterns(ctx, internIDs); err != nil {
 		return ProjectWithInterns{}, err
 	}
 
@@ -216,7 +280,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if err != nil {
 		return ProjectWithInterns{}, err
 	}
-	if err := replaceInterns(ctx, qtx, project.ID, in.InternIDs, now); err != nil {
+	if err := replaceInterns(ctx, qtx, project.ID, internIDs, now); err != nil {
 		return ProjectWithInterns{}, err
 	}
 	if _, err := portsvc.Allocate(ctx, qtx, project.ID, in.PortCount); err != nil {
