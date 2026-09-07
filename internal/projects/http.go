@@ -40,7 +40,7 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 		search,
 		lifecycle,
 		liveParam,
-		s.projectListItems(items),
+		s.projectListItems(r.Context(), items),
 	))
 }
 
@@ -155,6 +155,8 @@ func (s *Service) EditPage(w http.ResponseWriter, r *http.Request) error {
 		LifecycleStatus: detail.Project.LifecycleStatus,
 		ShouldRun:       detail.Project.ShouldRun == 1,
 		IsLive:          detail.Project.IsLive == 1,
+		Ports:           s.assignedPorts(r.Context(), detail.Project.ID),
+		PortError:       r.URL.Query().Get("port_error"),
 		Interns:         options,
 	}))
 }
@@ -181,6 +183,10 @@ func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	form.Interns = options
+
+	if projectID, err := s.projectIDBySlug(r.Context(), slug); err == nil {
+		form.Ports = s.assignedPorts(r.Context(), projectID)
+	}
 
 	updated, err := s.Update(r.Context(), slug, UpdateInput{
 		Name:            form.Name,
@@ -352,7 +358,7 @@ func (s *Service) internOptions(r *http.Request, selected []string) ([]pages.Int
 	return options, nil
 }
 
-func (s *Service) projectListItems(items []ProjectWithInterns) []pages.ProjectListItem {
+func (s *Service) projectListItems(ctx context.Context, items []ProjectWithInterns) []pages.ProjectListItem {
 	out := make([]pages.ProjectListItem, 0, len(items))
 	for _, item := range items {
 		names := make([]string, 0, len(item.Interns))
@@ -363,6 +369,10 @@ func (s *Service) projectListItems(items []ProjectWithInterns) []pages.ProjectLi
 		isLive := item.Project.IsLive == 1
 		statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
 		url := s.ProjectURL(item.Project.Slug)
+		mainPort := "—"
+		if main, err := s.queries.GetProjectMainPort(ctx, item.Project.ID); err == nil {
+			mainPort = strconv.FormatInt(main.Port, 10)
+		}
 		out = append(out, pages.ProjectListItem{
 			Name:            item.Project.Name,
 			Slug:            item.Project.Slug,
@@ -372,7 +382,7 @@ func (s *Service) projectListItems(items []ProjectWithInterns) []pages.ProjectLi
 			LifecycleStatus: item.Project.LifecycleStatus,
 			LifecycleLabel:  pages.LifecycleLabel(item.Project.LifecycleStatus),
 			LifecycleClass:  pages.LifecycleClass(item.Project.LifecycleStatus),
-			MainPort:        "—",
+			MainPort:        mainPort,
 			URL:             url,
 			URLLabel:        urlLabel(url),
 			UpdatedAt:       formatUpdatedAt(item.Project.UpdatedAt),

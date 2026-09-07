@@ -92,6 +92,8 @@ type ProjectFormData struct {
 	LifecycleStatus string
 	ShouldRun       bool
 	PortCount       int
+	Ports           []PortItem
+	PortError       string
 	IsLive          bool
 	IsNew           bool
 	Interns         []InternOption
