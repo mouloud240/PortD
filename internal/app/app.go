@@ -31,23 +31,43 @@ func NewHandler(authService *auth.Service, internService *internsvc.Service, pro
 	}
 	mux.Handle("GET /ports", httperr.Handle(requireSession(authService, portService.ListPage)))
 	admin := func(next httperr.Handler) httperr.Handler { return requireAdmin(authService, next) }
-	mux.Handle("GET /projects", httperr.Handle(admin(projectService.ListPage)))
-	mux.Handle("GET /projects/new", httperr.Handle(admin(projectService.NewPage)))
-	mux.Handle("POST /projects", httperr.Handle(admin(projectService.CreatePost)))
-	mux.Handle("GET /projects/{slug}", httperr.Handle(admin(projectService.DetailPage)))
-	mux.Handle("GET /projects/{slug}/edit", httperr.Handle(admin(projectService.EditPage)))
-	mux.Handle("POST /projects/{slug}", httperr.Handle(admin(projectService.UpdatePost)))
-	mux.Handle("POST /projects/{slug}/archive", httperr.Handle(admin(projectService.ArchivePost)))
-	mux.Handle("POST /projects/{slug}/ports/promote", httperr.Handle(admin(projectService.PromotePortPost)))
-	mux.Handle("POST /projects/{slug}/ports/allocate", httperr.Handle(admin(projectService.AllocatePortsPost)))
-	mux.Handle("POST /projects/{slug}/ports/release", httperr.Handle(admin(projectService.ReleasePortPost)))
-	mux.Handle("POST /projects/{slug}/ports/claim", httperr.Handle(admin(projectService.ClaimPortPost)))
+	member := func(next httperr.Handler) httperr.Handler {
+		return requireProjectMember(authService, projectService, next)
+	}
+	mux.Handle("GET /projects", httperr.Handle(requireSession(authService, projectService.ListPage)))
+	mux.Handle("GET /projects/new", httperr.Handle(requireSession(authService, projectService.NewPage)))
+	mux.Handle("POST /projects", httperr.Handle(requireSession(authService, projectService.CreatePost)))
+	mux.Handle("GET /projects/{slug}", httperr.Handle(member(projectService.DetailPage)))
+	mux.Handle("GET /projects/{slug}/edit", httperr.Handle(member(projectService.EditPage)))
+	mux.Handle("POST /projects/{slug}", httperr.Handle(member(projectService.UpdatePost)))
+	mux.Handle("POST /projects/{slug}/archive", httperr.Handle(member(projectService.ArchivePost)))
+	mux.Handle("POST /projects/{slug}/ports/promote", httperr.Handle(member(projectService.PromotePortPost)))
+	mux.Handle("POST /projects/{slug}/ports/allocate", httperr.Handle(member(projectService.AllocatePortsPost)))
+	mux.Handle("POST /projects/{slug}/ports/release", httperr.Handle(member(projectService.ReleasePortPost)))
+	mux.Handle("POST /projects/{slug}/ports/claim", httperr.Handle(member(projectService.ClaimPortPost)))
 	mux.Handle("GET /interns", httperr.Handle(admin(internService.ListPage)))
 	mux.Handle("GET /interns/new", httperr.Handle(admin(internService.NewPage)))
 	mux.Handle("POST /interns", httperr.Handle(admin(internService.CreatePost)))
 	mux.Handle("GET /interns/{id}", httperr.Handle(admin(internService.DetailPage)))
 	mux.Handle("POST /interns/{id}", httperr.Handle(admin(internService.UpdatePost)))
 	return mux
+}
+
+func requireProjectMember(authService *auth.Service, projectService *projectsvc.Service, next httperr.Handler) httperr.Handler {
+	return requireSession(authService, func(w http.ResponseWriter, r *http.Request) error {
+		principal, _ := auth.PrincipalFrom(r.Context())
+		ok, err := projectService.CanManage(r.Context(), r.PathValue("slug"), principal)
+		if err != nil {
+			if errors.Is(err, projectsvc.ErrNotFound) {
+				return httperr.NotFound("Project not found.", err)
+			}
+			return err
+		}
+		if !ok {
+			return httperr.Forbidden("You are not assigned to this project.", nil)
+		}
+		return next(w, r)
+	})
 }
 
 func requireSession(service *auth.Service, next httperr.Handler) httperr.Handler {

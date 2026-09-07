@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/portd/internal/auth"
 	"github.com/portd/internal/httperr"
 	portsvc "github.com/portd/internal/ports"
 	"github.com/portd/views/pages"
@@ -27,7 +28,11 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 	default:
 		liveParam = ""
 	}
-	items, err := s.List(r.Context(), search, lifecycle, isLive)
+	principal, _ := auth.PrincipalFrom(r.Context())
+	if !principal.IsAdmin() && principal.InternID == "" {
+		return httperr.Forbidden("Sign in as an intern or administrator.", nil)
+	}
+	items, err := s.scopedList(r, search, lifecycle, isLive)
 	if err != nil {
 		if errors.Is(err, ErrInvalid) {
 			return httperr.BadRequest("Invalid project filter.", err)
@@ -44,8 +49,23 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 	))
 }
 
+func (s *Service) scopedList(r *http.Request, search, lifecycle string, isLive int64) ([]ProjectWithInterns, error) {
+	principal, _ := auth.PrincipalFrom(r.Context())
+	if principal.IsAdmin() {
+		return s.List(r.Context(), search, lifecycle, isLive)
+	}
+	if principal.InternID == "" {
+		return nil, ErrInvalid
+	}
+	return s.ListForIntern(r.Context(), principal.InternID, search, lifecycle, isLive)
+}
+
 func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {
-	options, err := s.internOptions(r, nil)
+	selected := []string{}
+	if principal, _ := auth.PrincipalFrom(r.Context()); !principal.IsAdmin() && principal.InternID != "" {
+		selected = []string{principal.InternID}
+	}
+	options, err := s.internOptions(r, selected)
 	if err != nil {
 		return err
 	}
@@ -90,6 +110,10 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	}
 	form.Interns = options
 
+	creator := ""
+	if principal, _ := auth.PrincipalFrom(r.Context()); !principal.IsAdmin() {
+		creator = principal.InternID
+	}
 	created, err := s.Create(r.Context(), CreateInput{
 		Name:            form.Name,
 		Slug:            form.Slug,
@@ -98,6 +122,7 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 		LifecycleStatus: form.LifecycleStatus,
 		ShouldRun:       form.ShouldRun,
 		PortCount:       portCount,
+		CreatorInternID: creator,
 	})
 	if err != nil {
 		switch {
