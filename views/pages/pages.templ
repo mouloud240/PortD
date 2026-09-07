@@ -533,7 +533,38 @@ templ projectDetailBody(data ProjectDetailData) {
 			</div>
 			<div>
 				<dt>Allocated ports</dt>
-				<dd><span class="port main">{ data.MainPort } main</span></dd>
+				<dd>
+					if len(data.AllocatedPorts) == 0 {
+						<span class="text-brand-muted">No ports assigned yet.</span>
+					} else {
+						<ul class="flex flex-col gap-2">
+							for _, port := range data.AllocatedPorts {
+								<li class="flex flex-wrap items-center gap-2">
+									<code class="hub-code">{ port.Port }</code>
+									if port.IsMain {
+										<span class="port main">main</span>
+									} else {
+										<span class="port">internal</span>
+										<form method="post" action={ "/projects/" + data.Slug + "/ports/promote" }>
+											<input type="hidden" name="port" value={ port.Port }/>
+											<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+											<button class="table-action" type="submit">Make main</button>
+										</form>
+									}
+									if port.Live {
+										<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
+											<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
+											Live
+										</span>
+									}
+								</li>
+							}
+						</ul>
+					}
+					if data.PortError != "" {
+						<p class="text-sm font-semibold text-brand-red mt-2" role="alert">{ data.PortError }</p>
+					}
+				</dd>
 			</div>
 		</dl>
 		if !data.Archived {

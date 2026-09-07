@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -125,7 +126,7 @@ func (s *Service) DetailPage(w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
-	return httperr.Render(w, r, http.StatusOK, pages.ProjectDetailPage(s.projectDetailData(detail)))
+	return httperr.Render(w, r, http.StatusOK, pages.ProjectDetailPage(s.projectDetailData(r.Context(), detail, r.URL.Query().Get("port_error"))))
 }
 
 func (s *Service) EditPage(w http.ResponseWriter, r *http.Request) error {
@@ -380,7 +381,7 @@ func (s *Service) projectListItems(items []ProjectWithInterns) []pages.ProjectLi
 	return out
 }
 
-func (s *Service) projectDetailData(detail ProjectWithInterns) pages.ProjectDetailData {
+func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInterns, portError string) pages.ProjectDetailData {
 	names := make([]string, 0, len(detail.Interns))
 	for _, intern := range detail.Interns {
 		names = append(names, intern.FullName)
@@ -396,6 +397,13 @@ func (s *Service) projectDetailData(detail ProjectWithInterns) pages.ProjectDeta
 	runtimeIntent := "Stopped intent"
 	if shouldRun {
 		runtimeIntent = "Should run"
+	}
+	ports := s.assignedPorts(ctx, detail.Project.ID)
+	mainPort := "—"
+	for _, item := range ports {
+		if item.IsMain {
+			mainPort = item.Port
+		}
 	}
 	return pages.ProjectDetailData{
 		Path:            "/projects",
@@ -418,9 +426,34 @@ func (s *Service) projectDetailData(detail ProjectWithInterns) pages.ProjectDeta
 		StatusClass:     statusClass,
 		URL:             url,
 		URLLabel:        urlLabel(url),
-		MainPort:        "—",
+		MainPort:        mainPort,
+		AllocatedPorts:  ports,
+		PortError:       portError,
 		Archived:        detail.Project.LifecycleStatus == "archived",
 	}
+}
+
+func (s *Service) assignedPorts(ctx context.Context, projectID string) []pages.PortItem {
+	rows, err := s.queries.ListProjectPorts(ctx, projectID)
+	if err != nil {
+		return nil
+	}
+	live := map[int64]bool{}
+	if observed, err := s.queries.ListPortObservations(ctx); err == nil {
+		for _, row := range observed {
+			live[row.Port] = true
+		}
+	}
+	items := make([]pages.PortItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, pages.PortItem{
+			Port:   strconv.FormatInt(row.Port, 10),
+			Role:   row.Role,
+			IsMain: row.Role == "main",
+			Live:   live[row.Port],
+		})
+	}
+	return items
 }
 
 func urlLabel(raw string) string {

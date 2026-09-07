@@ -97,6 +97,14 @@ type ProjectFormData struct {
 	Interns         []InternOption
 }
 
+// PortItem is one assigned port on project pages.
+type PortItem struct {
+	Port   string
+	Role   string
+	IsMain bool
+	Live   bool
+}
+
 // ProjectDetailData is the finished project detail page value.
 type ProjectDetailData struct {
 	Path            string
@@ -120,6 +128,8 @@ type ProjectDetailData struct {
 	URL             string
 	URLLabel        string
 	MainPort        string
+	AllocatedPorts  []PortItem
+	PortError       string
 	Archived        bool
 }
 
