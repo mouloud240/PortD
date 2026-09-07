@@ -117,9 +117,94 @@
 
 .panel {
   background: #fff;
-  border: 1px solid #dbe3ed;
-  border-radius: 7px;
+  border: 1px solid #c1ccdb;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px 0 rgb(24 37 54 / 0.04);
 }
+
+.project-detail > .detail-panel {
+  margin-bottom: 24px;
+}
+
+.project-detail > .detail-grid {
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.project-detail .panel:last-child {
+  margin-bottom: 0;
+}
+
+.panel-body-padded {
+  padding: 20px 22px;
+}
+
+/* Keep content spacing inside the panel, without double-padding its header. */
+.panel > .panel-body {
+  padding: 20px 22px;
+}
+
+.panel > .hub-dl {
+  padding: 20px 22px;
+}
+
+.panel-head h2,
+.project-hero h1 {
+  color: #172b4d;
+  font-weight: 700;
+}
+
+.panel,
+.panel-body-padded,
+.panel-head,
+.project-hero-meta,
+.ports-panel-intro,
+.ports-scan-meta {
+  color: #182536;
+}
+
+.text-brand-muted, .panel .text-brand-muted {
+  color: #536274 !important;
+}
+
+.button.primary {
+  background: #003da5;
+  color: #fff;
+}
+.button.primary:hover {
+  background: #002e80;
+}
+.button.secondary {
+  background: #f5f8fb;
+  color: #003da5;
+  border-color: #003da5;
+}
+.button.secondary:hover {
+  background: #e7f6ed;
+  color: #087f44;
+  border-color: #087f44;
+}
+
+.hub-table th {
+  color: #172b4d;
+  background: #f5f8fb;
+  font-weight: 600;
+}
+
+.badge.running {
+  background: #e7f6ed;
+  color: #075c34;
+}
+.badge.warning {
+  background: #fff5dd;
+  color: #7a4300;
+}
+.badge.neutral {
+  background: #eef2f6;
+  color: #3d4b5d;
+}
+
 
 .panel-head {
   display: flex;
@@ -351,6 +436,7 @@
   background: #fff;
   border: 1px solid #dbe3ed;
   border-radius: 7px;
+  margin-bottom: 20px;
 }
 
 .title-row {
@@ -374,6 +460,18 @@
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
+}
+
+.project-hero-meta {
+  margin-top: 8px !important;
+}
+
+.project-detail .project-hero > div:first-child {
+  min-width: 0;
+}
+
+.project-detail .project-hero h1 {
+  overflow-wrap: anywhere;
 }
 
 .project-hero a:not(.button) {
@@ -440,6 +538,52 @@
 
 .tracking-panel {
   margin-bottom: 20px;
+}
+
+.ports-page-heading {
+  align-items: center;
+}
+
+.ports-panel-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 17px 19px;
+  border-bottom: 1px solid #dbe3ed;
+}
+
+.ports-panel-intro strong {
+  color: #172b4d;
+  font-size: 0.9375rem;
+}
+
+.ports-panel-intro p {
+  margin: 3px 0 0;
+  color: #536274;
+  font-size: 0.8125rem;
+}
+
+.ports-scan-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  color: #536274;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.ports-scan-meta strong {
+  color: #34445a;
+  font: 0.75rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.ports-panel .hub-table th,
+.ports-panel .hub-table td {
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .tracking-card-body {
@@ -694,6 +838,17 @@ small.warning {
 
   .project-hero .button {
     width: 100%;
+  }
+
+  .ports-panel-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ports-scan-meta {
+    justify-content: flex-start;
+    white-space: normal;
   }
 
   .hub-dl.setup,

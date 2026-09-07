@@ -55,6 +55,9 @@ func NewService(queries *db.Queries, adminUsername, adminPassword string) *Servi
 	}
 }
 
+// SessionTTL returns the lifetime used for browser sessions.
+func (s *Service) SessionTTL() time.Duration { return s.sessionTTL }
+
 func (s *Service) Login(ctx context.Context, username, password string) (Session, error) {
 	if username == s.adminUsername && s.adminUsername != "" && subtle.ConstantTimeCompare([]byte(password), []byte(s.adminPassword)) == 1 {
 		return s.createSession(ctx, Principal{Role: "admin"})

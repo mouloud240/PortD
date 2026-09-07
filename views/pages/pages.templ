@@ -343,27 +343,32 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 }
 
 templ PortsPage(data PortsPageData) {
-	@layouts.Shell("Port table", data.Path, portsBody(data))
+	@layouts.Shell("Port management", data.Path, portsBody(data))
 }
 
 templ portsBody(data PortsPageData) {
-	<div class="page-heading">
+	<div class="page-heading ports-page-heading">
 		<div>
-			<h1>Port table</h1>
-			<p>A manually refreshable view of registered and observed processes.</p>
+			<h1>Port management</h1>
+			<p>See which ports are in use and which project owns them.</p>
 		</div>
-		<a class="button secondary" href="/ports">↻ Refresh table</a>
+		<a class="button secondary" href="/ports">Refresh scan</a>
 	</div>
-	<section class="panel">
-		<p class="px-5 pt-4 text-xs text-brand-muted">
+	<section class="panel ports-panel">
+		<div class="ports-panel-intro">
+			<div>
+				<strong>Current scan</strong>
+				<p>Visibility only. PortD does not resolve conflicts automatically.</p>
+			</div>
+			<div class="ports-scan-meta">
 			if data.CheckedAt != "" {
-				Last checked { data.CheckedAt }.
+				<span>Last checked <strong>{ data.CheckedAt }</strong></span>
 			}
 			if data.Unknown > 0 {
-				{ data.Unknown } unregistered.
+				<span class="badge warning">{ data.Unknown } unregistered</span>
 			}
-			This is visibility only; the hub does not resolve conflicts automatically.
-		</p>
+			</div>
+		</div>
 		<div class="panel-body table-wrap">
 			<table class="hub-table">
 				<thead>
@@ -419,6 +424,7 @@ templ ProjectDetailPage(data ProjectDetailData) {
 }
 
 templ projectDetailBody(data ProjectDetailData) {
+	<div class="project-detail">
 	<a class="breadcrumb" href="/projects">Projects / <span>{ data.Name }</span></a>
 	<div class="project-hero">
 		<div>
@@ -428,7 +434,7 @@ templ projectDetailBody(data ProjectDetailData) {
 				<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
 			</div>
 			<a href={ data.URL } target="_blank" rel="noreferrer">{ data.URLLabel } ↗</a>
-			<p>Owned by { data.Owners } · Main port <code class="hub-code">{ data.MainPort }</code></p>
+			<p class="project-hero-meta">Owned by { data.Owners } · Main port <code class="hub-code">{ data.MainPort }</code></p>
 			if data.Description != "" {
 				<p>{ data.Description }</p>
 			}
@@ -439,7 +445,7 @@ templ projectDetailBody(data ProjectDetailData) {
 		</div>
 	</div>
 	<div class="detail-grid">
-		<section class="panel">
+		<section class="panel detail-panel">
 			<div class="panel-head"><h2>Project details</h2></div>
 			<dl class="hub-dl">
 				<div>
@@ -456,7 +462,7 @@ templ projectDetailBody(data ProjectDetailData) {
 				</div>
 			</dl>
 		</section>
-		<section class="panel">
+		<section class="panel detail-panel">
 			<div class="panel-head"><h2>Runtime</h2></div>
 			<dl class="hub-dl four-up">
 				<div>
@@ -480,14 +486,14 @@ templ projectDetailBody(data ProjectDetailData) {
 			</dl>
 		</section>
 	</div>
-	<section class="panel">
+	<section class="panel detail-panel">
 		<div class="panel-head">
 			<div>
 				<h2>Ports</h2>
 				<p>Only the main port gets a public link. Allocate or release on the <a class="table-action" href={ "/projects/" + data.Slug + "/edit" }>Edit page</a>.</p>
 			</div>
 		</div>
-		<div class="panel-body">
+		<div class="panel-body panel-body-padded">
 			if data.PortError != "" {
 				<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
 					{ data.PortError }
@@ -522,14 +528,14 @@ templ projectDetailBody(data ProjectDetailData) {
 			}
 		</div>
 	</section>
-	<section class="panel">
+	<section class="panel detail-panel">
 		<div class="panel-head">
 			<div>
 				<h2>Healthchecks</h2>
 				<p>Endpoints the checker will probe. Stored only for now.</p>
 			</div>
 		</div>
-		<div class="panel-body">
+		<div class="panel-body panel-body-padded">
 			if data.HealthError != "" {
 				<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
 					{ data.HealthError }
@@ -565,7 +571,7 @@ templ projectDetailBody(data ProjectDetailData) {
 			</form>
 		</div>
 	</section>
-	<section class="panel tracking-panel">
+	<section class="panel detail-panel tracking-panel">
 		<div class="panel-head"><h2>Project tracking</h2></div>
 		<div class="tracking-card-body">
 			<div class="tracking-topline">
@@ -584,9 +590,9 @@ templ projectDetailBody(data ProjectDetailData) {
 			</div>
 		</div>
 	</section>
-	<section class="panel">
+	<section class="panel detail-panel">
 		<div class="panel-head"><h2>How to run this project</h2></div>
-		<div class="panel-body">
+		<div class="panel-body panel-body-padded">
 			<ol class="flex flex-col gap-4 list-decimal ml-5 marker:font-bold marker:text-brand-navy">
 				<li>
 					<strong>Work in your folder.</strong>
@@ -611,7 +617,7 @@ templ projectDetailBody(data ProjectDetailData) {
 			</ol>
 		</div>
 	</section>
-	<section class="panel mt-5" x-data="{ confirmArchive: false }">
+	<section class="panel detail-panel" x-data="{ confirmArchive: false }">
 		<div class="panel-head"><h2>Project setup</h2></div>
 		<dl class="hub-dl setup">
 			<div>
@@ -649,6 +655,7 @@ templ projectDetailBody(data ProjectDetailData) {
 			</div>
 		}
 	</section>
+	</div>
 }
 
 templ projectFormBody(data ProjectFormData) {

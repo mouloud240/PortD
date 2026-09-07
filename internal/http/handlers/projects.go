@@ -1,4 +1,4 @@
-package projects
+package handlers
 
 import (
 	"context"
@@ -12,10 +12,11 @@ import (
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/httperr"
 	portsvc "github.com/portd/internal/ports"
+	projectsvc "github.com/portd/internal/projects"
 	"github.com/portd/views/pages"
 )
 
-func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
+func (h *ProjectsHandler) ListPage(w http.ResponseWriter, r *http.Request) error {
 	search := r.URL.Query().Get("q")
 	lifecycle := r.URL.Query().Get("lifecycle_status")
 	liveParam := r.URL.Query().Get("is_live")
@@ -32,9 +33,9 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 	if !principal.IsAdmin() && principal.InternID == "" {
 		return httperr.Forbidden("Sign in as an intern or administrator.", nil)
 	}
-	items, err := s.scopedList(r, search, lifecycle, isLive)
+	items, err := h.scopedList(r, search, lifecycle, isLive)
 	if err != nil {
-		if errors.Is(err, ErrInvalid) {
+		if errors.Is(err, projectsvc.ErrInvalid) {
 			return httperr.BadRequest("Invalid project filter.", err)
 		}
 		return err
@@ -45,27 +46,27 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 		search,
 		lifecycle,
 		liveParam,
-		s.ProjectListItems(r.Context(), items),
+		h.ProjectListItems(r.Context(), items),
 	))
 }
 
-func (s *Service) scopedList(r *http.Request, search, lifecycle string, isLive int64) ([]ProjectWithInterns, error) {
+func (h *ProjectsHandler) scopedList(r *http.Request, search, lifecycle string, isLive int64) ([]projectsvc.ProjectWithInterns, error) {
 	principal, _ := auth.PrincipalFrom(r.Context())
 	if principal.IsAdmin() {
-		return s.List(r.Context(), search, lifecycle, isLive)
+		return h.service.List(r.Context(), search, lifecycle, isLive)
 	}
 	if principal.InternID == "" {
-		return nil, ErrInvalid
+		return nil, projectsvc.ErrInvalid
 	}
-	return s.ListForIntern(r.Context(), principal.InternID, search, lifecycle, isLive)
+	return h.service.ListForIntern(r.Context(), principal.InternID, search, lifecycle, isLive)
 }
 
-func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {
+func (h *ProjectsHandler) NewPage(w http.ResponseWriter, r *http.Request) error {
 	selected := []string{}
 	if principal, _ := auth.PrincipalFrom(r.Context()); !principal.IsAdmin() && principal.InternID != "" {
 		selected = []string{principal.InternID}
 	}
-	options, err := s.internOptions(r, selected)
+	options, err := h.internOptions(r, selected)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {
 	}))
 }
 
-func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
+func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return httperr.BadRequest("Invalid form submission.", err)
 	}
@@ -104,7 +105,7 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 		IsNew:           true,
 	}
 	internIDs := r.Form["intern_ids"]
-	options, err := s.internOptions(r, internIDs)
+	options, err := h.internOptions(r, internIDs)
 	if err != nil {
 		return err
 	}
@@ -114,7 +115,7 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	if principal, _ := auth.PrincipalFrom(r.Context()); !principal.IsAdmin() {
 		creator = principal.InternID
 	}
-	created, err := s.Create(r.Context(), CreateInput{
+	created, err := h.service.Create(r.Context(), projectsvc.CreateInput{
 		Name:            form.Name,
 		Slug:            form.Slug,
 		Description:     form.Description,
@@ -126,10 +127,10 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrInvalid):
+		case errors.Is(err, projectsvc.ErrInvalid):
 			form.Error = "Name, at least one active intern, a valid lifecycle, and 1–5 ports are required."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.ProjectFormPage(form))
-		case errors.Is(err, ErrConflict):
+		case errors.Is(err, projectsvc.ErrConflict):
 			form.Error = "A project with that slug already exists."
 			return httperr.Render(w, r, http.StatusConflict, pages.ProjectFormPage(form))
 		case errors.Is(err, portsvc.ErrNoPorts):
@@ -143,25 +144,25 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Service) DetailPage(w http.ResponseWriter, r *http.Request) error {
-	detail, err := s.GetBySlug(r.Context(), r.PathValue("slug"))
+func (h *ProjectsHandler) DetailPage(w http.ResponseWriter, r *http.Request) error {
+	detail, err := h.service.GetBySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, projectsvc.ErrNotFound) {
 			return httperr.NotFound("Project not found.", err)
 		}
 		return err
 	}
-	data, err := s.projectDetailData(r.Context(), detail, r.URL.Query().Get("port_error"), r.URL.Query().Get("health_error"))
+	data, err := h.projectDetailData(r.Context(), detail, r.URL.Query().Get("port_error"), r.URL.Query().Get("health_error"))
 	if err != nil {
 		return err
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.ProjectDetailPage(data))
 }
 
-func (s *Service) EditPage(w http.ResponseWriter, r *http.Request) error {
-	detail, err := s.GetBySlug(r.Context(), r.PathValue("slug"))
+func (h *ProjectsHandler) EditPage(w http.ResponseWriter, r *http.Request) error {
+	detail, err := h.service.GetBySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, projectsvc.ErrNotFound) {
 			return httperr.NotFound("Project not found.", err)
 		}
 		return err
@@ -170,7 +171,7 @@ func (s *Service) EditPage(w http.ResponseWriter, r *http.Request) error {
 	for _, intern := range detail.Interns {
 		selected = append(selected, intern.ID)
 	}
-	options, err := s.internOptions(r, selected)
+	options, err := h.internOptions(r, selected)
 	if err != nil {
 		return err
 	}
@@ -184,13 +185,13 @@ func (s *Service) EditPage(w http.ResponseWriter, r *http.Request) error {
 		LifecycleStatus: detail.Project.LifecycleStatus,
 		ShouldRun:       detail.Project.ShouldRun == 1,
 		IsLive:          detail.Project.IsLive == 1,
-		Ports:           s.assignedPorts(r.Context(), detail.Project.ID),
+		Ports:           h.assignedPorts(r.Context(), detail.Project.ID),
 		PortError:       r.URL.Query().Get("port_error"),
 		Interns:         options,
 	}))
 }
 
-func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
+func (h *ProjectsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return httperr.BadRequest("Invalid form submission.", err)
 	}
@@ -207,17 +208,17 @@ func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 		ShouldRun:       shouldRun,
 	}
 	internIDs := r.Form["intern_ids"]
-	options, err := s.internOptions(r, internIDs)
+	options, err := h.internOptions(r, internIDs)
 	if err != nil {
 		return err
 	}
 	form.Interns = options
 
-	if projectID, err := s.projectIDBySlug(r.Context(), slug); err == nil {
-		form.Ports = s.assignedPorts(r.Context(), projectID)
+	if projectID, err := h.service.GetBySlug(r.Context(), slug); err == nil {
+		form.Ports = h.assignedPorts(r.Context(), projectID.Project.ID)
 	}
 
-	updated, err := s.Update(r.Context(), slug, UpdateInput{
+	updated, err := h.service.Update(r.Context(), slug, projectsvc.UpdateInput{
 		Name:            form.Name,
 		Description:     form.Description,
 		InternIDs:       internIDs,
@@ -226,10 +227,10 @@ func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrInvalid):
+		case errors.Is(err, projectsvc.ErrInvalid):
 			form.Error = "Name, at least one active intern, and a valid lifecycle are required."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.ProjectFormPage(form))
-		case errors.Is(err, ErrNotFound):
+		case errors.Is(err, projectsvc.ErrNotFound):
 			return httperr.NotFound("Project not found.", err)
 		default:
 			return err
@@ -240,11 +241,11 @@ func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Service) ArchivePost(w http.ResponseWriter, r *http.Request) error {
+func (h *ProjectsHandler) ArchivePost(w http.ResponseWriter, r *http.Request) error {
 	slug := r.PathValue("slug")
-	archived, err := s.Archive(r.Context(), slug)
+	archived, err := h.service.Archive(r.Context(), slug)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, projectsvc.ErrNotFound) {
 			return httperr.NotFound("Project not found.", err)
 		}
 		return err
@@ -253,112 +254,12 @@ func (s *Service) ArchivePost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Service) PromotePortPost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
-	}
-	slug := r.PathValue("slug")
-	port, ok := parsePort(r.FormValue("port"))
-	if !ok {
-		return s.portBack(w, r, slug, portsvc.ErrOutOfRange)
-	}
-	if err := s.PromotePort(r.Context(), slug, port); err != nil {
-		return s.portBack(w, r, slug, err)
-	}
-	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
-	return nil
-}
-
-func (s *Service) AllocatePortsPost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
-	}
-	slug := r.PathValue("slug")
-	n := 1
-	if raw := strings.TrimSpace(r.FormValue("count")); raw != "" {
-		var err error
-		n, err = strconv.Atoi(raw)
-		if err != nil {
-			return s.portBack(w, r, slug, ErrInvalid)
-		}
-	}
-	if err := s.AddPorts(r.Context(), slug, n); err != nil {
-		return s.portBack(w, r, slug, err)
-	}
-	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
-	return nil
-}
-
-func (s *Service) ReleasePortPost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
-	}
-	slug := r.PathValue("slug")
-	port, ok := parsePort(r.FormValue("port"))
-	if !ok {
-		return s.portBack(w, r, slug, portsvc.ErrOutOfRange)
-	}
-	if err := s.ReleasePort(r.Context(), slug, port); err != nil {
-		return s.portBack(w, r, slug, err)
-	}
-	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
-	return nil
-}
-
-func (s *Service) ClaimPortPost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
-	}
-	slug := r.PathValue("slug")
-	port, err := strconv.Atoi(strings.TrimSpace(r.FormValue("port")))
-	if err != nil {
-		return s.portBack(w, r, slug, ErrInvalid)
-	}
-	if err := s.ClaimPort(r.Context(), slug, port); err != nil {
-		return s.portBack(w, r, slug, err)
-	}
-	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
-	return nil
-}
-
-func (s *Service) AddHealthcheckPost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
-	}
-	slug := r.PathValue("slug")
-	expected := 0
-	if raw := strings.TrimSpace(r.FormValue("expected_status")); raw != "" {
-		var err error
-		expected, err = strconv.Atoi(raw)
-		if err != nil {
-			return s.healthBack(w, r, slug, ErrInvalid)
-		}
-	}
-	if _, err := s.AddHealthcheck(r.Context(), slug, r.FormValue("endpoint"), expected); err != nil {
-		return s.healthBack(w, r, slug, err)
-	}
-	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
-	return nil
-}
-
-func (s *Service) RemoveHealthcheckPost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
-	}
-	slug := r.PathValue("slug")
-	if err := s.RemoveHealthcheck(r.Context(), slug, r.PathValue("id")); err != nil {
-		return s.healthBack(w, r, slug, err)
-	}
-	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
-	return nil
-}
-
-func (s *Service) healthBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
-	if errors.Is(err, ErrNotFound) {
+func (h *ProjectsHandler) healthBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
+	if errors.Is(err, projectsvc.ErrNotFound) {
 		return httperr.NotFound("Project not found.", err)
 	}
 	msg := "Healthcheck action failed."
-	if errors.Is(err, ErrInvalid) {
+	if errors.Is(err, projectsvc.ErrInvalid) {
 		msg = "Endpoint must start with / or http(s):// and expect status 200–599."
 	} else {
 		return err
@@ -387,13 +288,13 @@ func portBackURL(r *http.Request, slug string) string {
 	return "/projects/" + slug
 }
 
-func (s *Service) portBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
-	if errors.Is(err, ErrNotFound) || errors.Is(err, portsvc.ErrNotFound) {
+func (h *ProjectsHandler) portBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
+	if errors.Is(err, projectsvc.ErrNotFound) || errors.Is(err, portsvc.ErrNotFound) {
 		return httperr.NotFound("Project not found.", err)
 	}
 	msg := "Port action failed."
 	switch {
-	case errors.Is(err, ErrInvalid):
+	case errors.Is(err, projectsvc.ErrInvalid):
 		msg = "Count must be between 1 and 5."
 	case errors.Is(err, portsvc.ErrNoPorts):
 		msg = "Not enough free ports in range 3000–9999."
@@ -417,8 +318,8 @@ func (s *Service) portBack(w http.ResponseWriter, r *http.Request, slug string, 
 	return nil
 }
 
-func (s *Service) internOptions(r *http.Request, selected []string) ([]pages.InternOption, error) {
-	interns, err := s.ListActiveInterns(r.Context())
+func (h *ProjectsHandler) internOptions(r *http.Request, selected []string) ([]pages.InternOption, error) {
+	interns, err := h.service.ListActiveInterns(r.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +339,7 @@ func (s *Service) internOptions(r *http.Request, selected []string) ([]pages.Int
 	return options, nil
 }
 
-func (s *Service) ProjectListItems(ctx context.Context, items []ProjectWithInterns) []pages.ProjectListItem {
+func (h *ProjectsHandler) ProjectListItems(ctx context.Context, items []projectsvc.ProjectWithInterns) []pages.ProjectListItem {
 	out := make([]pages.ProjectListItem, 0, len(items))
 	for _, item := range items {
 		names := make([]string, 0, len(item.Interns))
@@ -448,9 +349,9 @@ func (s *Service) ProjectListItems(ctx context.Context, items []ProjectWithInter
 		shouldRun := item.Project.ShouldRun == 1
 		isLive := item.Project.IsLive == 1
 		statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
-		url := s.ProjectURL(item.Project.Slug)
+		url := h.service.ProjectURL(item.Project.Slug)
 		mainPort := "—"
-		if main, err := s.queries.GetProjectMainPort(ctx, item.Project.ID); err == nil {
+		if main, err := h.service.MainPort(ctx, item.Project.ID); err == nil {
 			mainPort = strconv.FormatInt(main.Port, 10)
 		}
 		out = append(out, pages.ProjectListItem{
@@ -471,7 +372,7 @@ func (s *Service) ProjectListItems(ctx context.Context, items []ProjectWithInter
 	return out
 }
 
-func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInterns, portError, healthError string) (pages.ProjectDetailData, error) {
+func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projectsvc.ProjectWithInterns, portError, healthError string) (pages.ProjectDetailData, error) {
 	names := make([]string, 0, len(detail.Interns))
 	for _, intern := range detail.Interns {
 		names = append(names, intern.FullName)
@@ -483,19 +384,19 @@ func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInter
 	shouldRun := detail.Project.ShouldRun == 1
 	isLive := detail.Project.IsLive == 1
 	statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
-	url := s.ProjectURL(detail.Project.Slug)
+	url := h.service.ProjectURL(detail.Project.Slug)
 	runtimeIntent := "Stopped intent"
 	if shouldRun {
 		runtimeIntent = "Should run"
 	}
-	ports := s.assignedPorts(ctx, detail.Project.ID)
+	ports := h.assignedPorts(ctx, detail.Project.ID)
 	mainPort := "—"
 	for _, item := range ports {
 		if item.IsMain {
 			mainPort = item.Port
 		}
 	}
-	checks, err := s.queries.ListProjectHealthchecks(ctx, detail.Project.ID)
+	checks, err := h.service.ListHealthchecks(ctx, detail.Project.ID)
 	if err != nil {
 		return pages.ProjectDetailData{}, err
 	}
@@ -537,13 +438,13 @@ func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInter
 	}, nil
 }
 
-func (s *Service) assignedPorts(ctx context.Context, projectID string) []pages.PortItem {
-	rows, err := s.queries.ListProjectPorts(ctx, projectID)
+func (h *ProjectsHandler) assignedPorts(ctx context.Context, projectID string) []pages.PortItem {
+	rows, err := h.service.ListPorts(ctx, projectID)
 	if err != nil {
 		return nil
 	}
 	live := map[int64]bool{}
-	if observed, err := s.queries.ListPortObservations(ctx); err == nil {
+	if observed, err := h.service.ListPortObservations(ctx); err == nil {
 		for _, row := range observed {
 			live[row.Port] = true
 		}

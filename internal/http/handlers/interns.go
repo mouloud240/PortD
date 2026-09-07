@@ -1,4 +1,4 @@
-package interns
+package handlers
 
 import (
 	"database/sql"
@@ -7,10 +7,11 @@ import (
 	"strconv"
 
 	"github.com/portd/internal/httperr"
+	internsvc "github.com/portd/internal/interns"
 	"github.com/portd/views/pages"
 )
 
-func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
+func (h *InternsHandler) ListPage(w http.ResponseWriter, r *http.Request) error {
 	search := r.URL.Query().Get("q")
 	state := r.URL.Query().Get("state")
 	var active int64 = -1
@@ -22,14 +23,14 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 	default:
 		state = "all"
 	}
-	items, err := s.List(r.Context(), search, active)
+	items, err := h.service.List(r.Context(), search, active)
 	if err != nil {
 		return err
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.InternsPage("Interns", r.URL.Path, search, state, pages.ListItems(items)))
 }
 
-func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {
+func (h *InternsHandler) NewPage(w http.ResponseWriter, r *http.Request) error {
 	return httperr.Render(w, r, http.StatusOK, pages.InternFormPage(pages.InternFormData{
 		Title:  "New intern",
 		Path:   "/interns",
@@ -39,7 +40,7 @@ func (s *Service) NewPage(w http.ResponseWriter, r *http.Request) error {
 	}))
 }
 
-func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
+func (h *InternsHandler) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return httperr.BadRequest("Invalid form submission.", err)
 	}
@@ -53,13 +54,13 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 		Active:     true,
 		IsNew:      true,
 	}
-	intern, err := s.Create(r.Context(), form.FullName, form.Email, form.Identifier, r.FormValue("password"))
+	intern, err := h.service.Create(r.Context(), form.FullName, form.Email, form.Identifier, r.FormValue("password"))
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrInvalid):
+		case errors.Is(err, internsvc.ErrInvalid):
 			form.Error = "Full name, username, and password are required."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.InternFormPage(form))
-		case errors.Is(err, ErrConflict):
+		case errors.Is(err, internsvc.ErrConflict):
 			form.Error = "That username or email is already taken."
 			return httperr.Render(w, r, http.StatusConflict, pages.InternFormPage(form))
 		default:
@@ -70,10 +71,10 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Service) DetailPage(w http.ResponseWriter, r *http.Request) error {
-	intern, err := s.Get(r.Context(), r.PathValue("id"))
+func (h *InternsHandler) DetailPage(w http.ResponseWriter, r *http.Request) error {
+	intern, err := h.service.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, internsvc.ErrNotFound) {
 			return httperr.NotFound("Intern not found.", err)
 		}
 		return err
@@ -90,7 +91,7 @@ func (s *Service) DetailPage(w http.ResponseWriter, r *http.Request) error {
 	}))
 }
 
-func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
+func (h *InternsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return httperr.BadRequest("Invalid form submission.", err)
 	}
@@ -105,13 +106,13 @@ func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 		Email:      r.FormValue("email"),
 		Active:     active,
 	}
-	intern, err := s.Update(r.Context(), form.ID, form.FullName, form.Email, form.Identifier, active)
+	intern, err := h.service.Update(r.Context(), form.ID, form.FullName, form.Email, form.Identifier, active)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrInvalid):
+		case errors.Is(err, internsvc.ErrInvalid):
 			form.Error = "Full name and username are required."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.InternFormPage(form))
-		case errors.Is(err, ErrConflict):
+		case errors.Is(err, internsvc.ErrConflict):
 			form.Error = "That username or email is already taken."
 			return httperr.Render(w, r, http.StatusConflict, pages.InternFormPage(form))
 		case errors.Is(err, sql.ErrNoRows):

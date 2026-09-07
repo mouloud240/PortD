@@ -2,49 +2,30 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/portd/internal/app"
-	"github.com/portd/internal/auth"
 	"github.com/portd/internal/config"
-	"github.com/portd/internal/db/generated"
-	internsvc "github.com/portd/internal/interns"
-	portsvc "github.com/portd/internal/ports"
-	projectsvc "github.com/portd/internal/projects"
-	_ "modernc.org/sqlite"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	cfg := config.Load()
-	database, err := sql.Open("sqlite", cfg.DBPath)
+	application, err := app.New(cfg)
 	if err != nil {
-		logger.Error("open database", "error", err)
+		logger.Error("build application", "error", err)
 		return
 	}
-	defer database.Close()
-	if _, err := database.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		logger.Error("enable foreign keys", "error", err)
-		return
-	}
-
-	queries := db.New(database)
-	server := &http.Server{
-		Addr:              cfg.HTTPAddr,
-		Handler:           app.NewHandler(auth.NewService(queries, cfg.AdminUsername, cfg.AdminPassword), internsvc.NewService(queries), projectsvc.NewService(database, queries, cfg.BaseURL), portsvc.NewService(queries, portsvc.NewGopsutilScanner())),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	defer application.Close()
 
 	go func() {
 		logger.Info("starting PortD", "address", cfg.HTTPAddr)
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := application.ListenAndServe(cfg.HTTPAddr); err != nil && !errors.Is(err, app.ErrServerClosed) {
 			logger.Error("PortD stopped unexpectedly", "error", err)
 			os.Exit(1)
 		}
@@ -56,7 +37,7 @@ func main() {
 
 	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := server.Shutdown(shutdownContext); err != nil {
+	if err := application.Shutdown(shutdownContext); err != nil {
 		logger.Error("graceful shutdown failed", "error", err)
 	}
 }

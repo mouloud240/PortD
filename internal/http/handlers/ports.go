@@ -1,4 +1,4 @@
-package ports
+package handlers
 
 import (
 	"net/http"
@@ -11,8 +11,8 @@ import (
 	"github.com/portd/views/pages"
 )
 
-func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
-	rows, err := s.Snapshot(r.Context())
+func (h *PortsHandler) ListPage(w http.ResponseWriter, r *http.Request) error {
+	rows, err := h.service.Snapshot(r.Context())
 	if err != nil {
 		return err
 	}
@@ -23,7 +23,7 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 		if row.ProjectID.Valid {
 			item.ProjectID = row.ProjectID.String
 			item.Registered = true
-			s.enrich(r, &item)
+			h.enrich(r, &item)
 		} else {
 			unknown++
 		}
@@ -50,18 +50,14 @@ func displayProcess(row db.PortObservation) string {
 	}
 }
 
-func (s *Service) enrich(r *http.Request, item *pages.PortRow) {
-	project, err := s.queries.GetProjectByID(r.Context(), item.ProjectID)
+func (h *PortsHandler) enrich(r *http.Request, item *pages.PortRow) {
+	project, interns, err := h.service.Registration(r.Context(), item.ProjectID)
 	if err != nil {
 		item.Project = "—"
 		return
 	}
 	item.Project = project.Name
 	item.ProjectSlug = project.Slug
-	interns, err := s.queries.ListProjectInterns(r.Context(), item.ProjectID)
-	if err != nil {
-		return
-	}
 	names := make([]string, 0, len(interns))
 	for _, intern := range interns {
 		names = append(names, intern.FullName)

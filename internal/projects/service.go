@@ -552,3 +552,23 @@ func slugify(name string) string {
 func isConflict(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
+
+// ListPorts returns ports assigned to a project.
+func (s *Service) ListPorts(ctx context.Context, projectID string) ([]db.Port, error) {
+	return s.queries.ListProjectPorts(ctx, projectID)
+}
+
+// ListPortObservations returns the latest observed listening ports.
+func (s *Service) ListPortObservations(ctx context.Context) ([]db.PortObservation, error) {
+	return s.queries.ListPortObservations(ctx)
+}
+
+// ListHealthchecks returns healthchecks configured for a project.
+func (s *Service) ListHealthchecks(ctx context.Context, projectID string) ([]db.ProjectHealthcheck, error) {
+	return s.queries.ListProjectHealthchecks(ctx, projectID)
+}
+
+// MainPort returns the project's main port.
+func (s *Service) MainPort(ctx context.Context, projectID string) (db.Port, error) {
+	return s.queries.GetProjectMainPort(ctx, projectID)
+}

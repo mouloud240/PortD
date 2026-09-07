@@ -164,9 +164,9 @@ func TestOverviewSkipsArchived(t *testing.T) {
 	if overview.Active != 1 || len(overview.Recent) != 1 || overview.Recent[0].Project.Slug != "live-app" {
 		t.Fatalf("overview = %+v", overview)
 	}
-	items := service.ProjectListItems(ctx, overview.Recent)
-	if len(items) != 1 || items[0].MainPort == "—" {
-		t.Fatalf("items = %+v, want resolved main port", items)
+	mainPort, err := service.MainPort(ctx, overview.Recent[0].Project.ID)
+	if err != nil || mainPort.Port == 0 {
+		t.Fatalf("main port = %+v, err = %v", mainPort, err)
 	}
 }
 

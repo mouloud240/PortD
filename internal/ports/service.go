@@ -17,6 +17,19 @@ type Service struct {
 	scanner Scanner
 }
 
+// Registration returns the project and interns associated with an observed port.
+func (s *Service) Registration(ctx context.Context, projectID string) (db.Project, []db.Intern, error) {
+	project, err := s.queries.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return db.Project{}, nil, err
+	}
+	interns, err := s.queries.ListProjectInterns(ctx, projectID)
+	if err != nil {
+		return db.Project{}, nil, err
+	}
+	return project, interns, nil
+}
+
 // NewService wires generated queries to any Scanner (gopsutil or fake).
 func NewService(queries *db.Queries, scanner Scanner) *Service {
 	return &Service{queries: queries, scanner: scanner}
