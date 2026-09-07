@@ -140,6 +140,91 @@ func (q *Queries) InsertProjectIntern(ctx context.Context, arg InsertProjectInte
 	return err
 }
 
+const isProjectMember = `-- name: IsProjectMember :one
+SELECT COUNT(*) FROM project_interns WHERE project_id = ? AND intern_id = ?
+`
+
+type IsProjectMemberParams struct {
+	ProjectID string `json:"project_id"`
+	InternID  string `json:"intern_id"`
+}
+
+func (q *Queries) IsProjectMember(ctx context.Context, arg IsProjectMemberParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, isProjectMember, arg.ProjectID, arg.InternID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const listInternProjects = `-- name: ListInternProjects :many
+SELECT p.id, p.name, p.slug, p.description, p.directory, p.startup_command, p.should_run, p.is_live, p.lifecycle_status, p.route_sync_status, p.created_at, p.updated_at
+FROM projects p
+INNER JOIN project_interns pi ON pi.project_id = p.id
+WHERE pi.intern_id = ?
+  AND (? = '' OR p.name LIKE '%' || ? || '%' OR p.slug LIKE '%' || ? || '%' OR p.description LIKE '%' || ? || '%')
+  AND (? = '' OR p.lifecycle_status = ?)
+  AND (? < 0 OR p.is_live = ?)
+ORDER BY p.updated_at DESC, p.name, p.id
+`
+
+type ListInternProjectsParams struct {
+	InternID        string         `json:"intern_id"`
+	Column2         interface{}    `json:"column_2"`
+	Column3         sql.NullString `json:"column_3"`
+	Column4         sql.NullString `json:"column_4"`
+	Column5         sql.NullString `json:"column_5"`
+	Column6         interface{}    `json:"column_6"`
+	LifecycleStatus string         `json:"lifecycle_status"`
+	Column8         interface{}    `json:"column_8"`
+	IsLive          int64          `json:"is_live"`
+}
+
+func (q *Queries) ListInternProjects(ctx context.Context, arg ListInternProjectsParams) ([]Project, error) {
+	rows, err := q.db.QueryContext(ctx, listInternProjects,
+		arg.InternID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+		arg.LifecycleStatus,
+		arg.Column8,
+		arg.IsLive,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.Directory,
+			&i.StartupCommand,
+			&i.ShouldRun,
+			&i.IsLive,
+			&i.LifecycleStatus,
+			&i.RouteSyncStatus,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectInternIDs = `-- name: ListProjectInternIDs :many
 SELECT intern_id FROM project_interns WHERE project_id = ? ORDER BY intern_id
 `

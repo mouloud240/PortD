@@ -45,3 +45,16 @@ FROM interns i
 INNER JOIN project_interns pi ON pi.intern_id = i.id
 WHERE pi.project_id = ?
 ORDER BY i.full_name, i.id;
+
+-- name: IsProjectMember :one
+SELECT COUNT(*) FROM project_interns WHERE project_id = ? AND intern_id = ?;
+
+-- name: ListInternProjects :many
+SELECT p.*
+FROM projects p
+INNER JOIN project_interns pi ON pi.project_id = p.id
+WHERE pi.intern_id = ?
+  AND (? = '' OR p.name LIKE '%' || ? || '%' OR p.slug LIKE '%' || ? || '%' OR p.description LIKE '%' || ? || '%')
+  AND (? = '' OR p.lifecycle_status = ?)
+  AND (? < 0 OR p.is_live = ?)
+ORDER BY p.updated_at DESC, p.name, p.id;

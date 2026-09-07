@@ -57,11 +57,12 @@ func requireSession(service *auth.Service, next httperr.Handler) httperr.Handler
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return nil
 		}
-		if _, err := service.Session(r.Context(), cookie.Value); err != nil {
+		principal, err := service.Session(r.Context(), cookie.Value)
+		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return nil
 		}
-		return next(w, r)
+		return next(w, r.WithContext(auth.WithPrincipal(r.Context(), principal)))
 	}
 }
 
@@ -80,7 +81,7 @@ func requireAdmin(service *auth.Service, next httperr.Handler) httperr.Handler {
 		if !principal.IsAdmin() {
 			return httperr.Forbidden("Administrator access required", nil)
 		}
-		return next(w, r)
+		return next(w, r.WithContext(auth.WithPrincipal(r.Context(), principal)))
 	}
 }
 
