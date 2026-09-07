@@ -57,10 +57,63 @@ type ProfileData struct {
 	Error    string
 }
 
+// ProjectListItem is one row on the projects directory.
+type ProjectListItem struct {
+	Name            string
+	Slug            string
+	Interns         string
+	LifecycleStatus string
+	ShouldRun       bool
+	IsLive          bool
+	UpdatedAt       string
+}
+
+// InternOption is a selectable intern on the project form.
+type InternOption struct {
+	ID       string
+	FullName string
+	Selected bool
+}
+
+// ProjectFormData is the finished project create/edit form value.
+type ProjectFormData struct {
+	Title           string
+	Path            string
+	Action          string
+	Error           string
+	Name            string
+	Slug            string
+	Description     string
+	LifecycleStatus string
+	ShouldRun       bool
+	IsLive          bool
+	IsNew           bool
+	Interns         []InternOption
+}
+
 // activeJS renders a Go bool as a JS boolean literal for x-init.
 func activeJS(active bool) string {
 	if active {
 		return "true"
 	}
 	return "false"
+}
+
+func lifecycleLabel(status string) string {
+	switch status {
+	case "draft":
+		return "Draft"
+	case "ready":
+		return "Ready"
+	case "running":
+		return "Running"
+	case "stopped":
+		return "Stopped"
+	case "failed":
+		return "Failed"
+	case "archived":
+		return "Archived"
+	default:
+		return status
+	}
 }
