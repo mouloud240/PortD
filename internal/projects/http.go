@@ -151,7 +151,11 @@ func (s *Service) DetailPage(w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
-	return httperr.Render(w, r, http.StatusOK, pages.ProjectDetailPage(s.projectDetailData(r.Context(), detail, r.URL.Query().Get("port_error"))))
+	data, err := s.projectDetailData(r.Context(), detail, r.URL.Query().Get("port_error"), r.URL.Query().Get("health_error"))
+	if err != nil {
+		return err
+	}
+	return httperr.Render(w, r, http.StatusOK, pages.ProjectDetailPage(data))
 }
 
 func (s *Service) EditPage(w http.ResponseWriter, r *http.Request) error {
@@ -317,6 +321,57 @@ func (s *Service) ClaimPortPost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Service) AddHealthcheckPost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	slug := r.PathValue("slug")
+	expected := 0
+	if raw := strings.TrimSpace(r.FormValue("expected_status")); raw != "" {
+		var err error
+		expected, err = strconv.Atoi(raw)
+		if err != nil {
+			return s.healthBack(w, r, slug, ErrInvalid)
+		}
+	}
+	if _, err := s.AddHealthcheck(r.Context(), slug, r.FormValue("endpoint"), expected); err != nil {
+		return s.healthBack(w, r, slug, err)
+	}
+	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
+	return nil
+}
+
+func (s *Service) RemoveHealthcheckPost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	slug := r.PathValue("slug")
+	if err := s.RemoveHealthcheck(r.Context(), slug, r.PathValue("id")); err != nil {
+		return s.healthBack(w, r, slug, err)
+	}
+	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
+	return nil
+}
+
+func (s *Service) healthBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
+	if errors.Is(err, ErrNotFound) {
+		return httperr.NotFound("Project not found.", err)
+	}
+	msg := "Healthcheck action failed."
+	if errors.Is(err, ErrInvalid) {
+		msg = "Endpoint must start with / or http(s):// and expect status 200–599."
+	} else {
+		return err
+	}
+	next := portBackURL(r, slug)
+	sep := "?"
+	if strings.Contains(next, "?") {
+		sep = "&"
+	}
+	http.Redirect(w, r, next+sep+"health_error="+url.QueryEscape(msg), http.StatusSeeOther)
+	return nil
+}
+
 func parsePort(raw string) (int64, bool) {
 	port, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
 	if err != nil || port < 1 || port > 65535 {
@@ -416,7 +471,7 @@ func (s *Service) ProjectListItems(ctx context.Context, items []ProjectWithInter
 	return out
 }
 
-func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInterns, portError string) pages.ProjectDetailData {
+func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInterns, portError, healthError string) (pages.ProjectDetailData, error) {
 	names := make([]string, 0, len(detail.Interns))
 	for _, intern := range detail.Interns {
 		names = append(names, intern.FullName)
@@ -439,6 +494,18 @@ func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInter
 		if item.IsMain {
 			mainPort = item.Port
 		}
+	}
+	checks, err := s.queries.ListProjectHealthchecks(ctx, detail.Project.ID)
+	if err != nil {
+		return pages.ProjectDetailData{}, err
+	}
+	endpoints := make([]pages.HealthcheckItem, 0, len(checks))
+	for _, check := range checks {
+		endpoints = append(endpoints, pages.HealthcheckItem{
+			ID:       check.ID,
+			Endpoint: check.Endpoint,
+			Expected: strconv.FormatInt(check.ExpectedStatus, 10),
+		})
 	}
 	return pages.ProjectDetailData{
 		Path:            "/projects",
@@ -464,8 +531,10 @@ func (s *Service) projectDetailData(ctx context.Context, detail ProjectWithInter
 		MainPort:        mainPort,
 		AllocatedPorts:  ports,
 		PortError:       portError,
+		Healthchecks:    endpoints,
+		HealthError:     healthError,
 		Archived:        detail.Project.LifecycleStatus == "archived",
-	}
+	}, nil
 }
 
 func (s *Service) assignedPorts(ctx context.Context, projectID string) []pages.PortItem {

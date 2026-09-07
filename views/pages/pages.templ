@@ -476,6 +476,49 @@ templ projectDetailBody(data ProjectDetailData) {
 			</dl>
 		</section>
 	</div>
+	<section class="panel">
+		<div class="panel-head">
+			<div>
+				<h2>Healthchecks</h2>
+				<p>Endpoints the checker will probe. Stored only for now.</p>
+			</div>
+		</div>
+		<div class="panel-body">
+			if data.HealthError != "" {
+				<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+					{ data.HealthError }
+				</div>
+			}
+			if len(data.Healthchecks) == 0 {
+				<p class="text-sm text-brand-muted mb-4">No endpoints yet.</p>
+			} else {
+				<ul class="flex flex-col gap-2 mb-4">
+					for _, check := range data.Healthchecks {
+						<li class="flex flex-wrap items-center gap-2">
+							<code class="hub-code">{ check.Endpoint }</code>
+							<span class="port">→ { check.Expected }</span>
+							<form method="post" action={ "/projects/" + data.Slug + "/healthchecks/" + check.ID + "/delete" }>
+								<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+								<button class="table-action" type="submit">Remove</button>
+							</form>
+						</li>
+					}
+				</ul>
+			}
+			<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/healthchecks" }>
+				<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+				<label class="block text-sm font-bold text-slate-700">
+					Endpoint
+					<input class="mt-1 block w-64 max-w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="endpoint" maxlength="2048" placeholder="/health"/>
+				</label>
+				<label class="block text-sm font-bold text-slate-700">
+					Expect
+					<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal" name="expected_status" type="number" min="200" max="599" placeholder="200"/>
+				</label>
+				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Add</button>
+			</form>
+		</div>
+	</section>
 	<section class="panel tracking-panel">
 		<div class="panel-head"><h2>Project tracking</h2></div>
 		<div class="tracking-card-body">

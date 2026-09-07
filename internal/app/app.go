@@ -45,6 +45,8 @@ func NewHandler(authService *auth.Service, internService *internsvc.Service, pro
 	mux.Handle("POST /projects/{slug}/ports/allocate", httperr.Handle(member(projectService.AllocatePortsPost)))
 	mux.Handle("POST /projects/{slug}/ports/release", httperr.Handle(member(projectService.ReleasePortPost)))
 	mux.Handle("POST /projects/{slug}/ports/claim", httperr.Handle(member(projectService.ClaimPortPost)))
+	mux.Handle("POST /projects/{slug}/healthchecks", httperr.Handle(member(projectService.AddHealthcheckPost)))
+	mux.Handle("POST /projects/{slug}/healthchecks/{id}/delete", httperr.Handle(member(projectService.RemoveHealthcheckPost)))
 	mux.Handle("GET /interns", httperr.Handle(admin(internService.ListPage)))
 	mux.Handle("GET /interns/new", httperr.Handle(admin(internService.NewPage)))
 	mux.Handle("POST /interns", httperr.Handle(admin(internService.CreatePost)))

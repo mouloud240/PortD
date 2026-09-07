@@ -107,6 +107,13 @@ type PortItem struct {
 	Live   bool
 }
 
+// HealthcheckItem is one stored healthcheck endpoint on the detail page.
+type HealthcheckItem struct {
+	ID       string
+	Endpoint string
+	Expected string
+}
+
 // ProjectDetailData is the finished project detail page value.
 type ProjectDetailData struct {
 	Path            string
@@ -132,6 +139,8 @@ type ProjectDetailData struct {
 	MainPort        string
 	AllocatedPorts  []PortItem
 	PortError       string
+	Healthchecks    []HealthcheckItem
+	HealthError     string
 	Archived        bool
 }
 
