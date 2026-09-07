@@ -59,13 +59,18 @@ type ProfileData struct {
 
 // ProjectListItem is one row on the projects directory.
 type ProjectListItem struct {
-	Name            string
-	Slug            string
-	Interns         string
-	LifecycleStatus string
-	ShouldRun       bool
-	IsLive          bool
-	UpdatedAt       string
+	Name             string
+	Slug             string
+	Interns          string
+	StatusLabel      string
+	StatusClass      string
+	LifecycleStatus  string
+	LifecycleLabel   string
+	LifecycleClass   string
+	MainPort         string
+	URL              string
+	URLLabel         string
+	UpdatedAt        string
 }
 
 // InternOption is a selectable intern on the project form.
@@ -89,6 +94,32 @@ type ProjectFormData struct {
 	IsLive          bool
 	IsNew           bool
 	Interns         []InternOption
+}
+
+// ProjectDetailData is the finished project detail page value.
+type ProjectDetailData struct {
+	Path            string
+	Name            string
+	Slug            string
+	Description     string
+	Owners          string
+	CreatedAt       string
+	UpdatedAt       string
+	Directory       string
+	StartupCommand  string
+	LifecycleStatus string
+	LifecycleLabel  string
+	LifecycleClass  string
+	LifecyclePhase  string
+	RuntimeIntent   string
+	ShouldRun       bool
+	IsLive          bool
+	StatusLabel     string
+	StatusClass     string
+	URL             string
+	URLLabel        string
+	MainPort        string
+	Archived        bool
 }
 
 // activeJS renders a Go bool as a JS boolean literal for x-init.
@@ -116,4 +147,57 @@ func lifecycleLabel(status string) string {
 	default:
 		return status
 	}
+}
+
+// LifecycleLabel returns the display label for a lifecycle status.
+func LifecycleLabel(status string) string { return lifecycleLabel(status) }
+
+func lifecyclePhase(status string) string {
+	switch status {
+	case "draft":
+		return "Define scope and owners"
+	case "ready":
+		return "Ready for first deploy"
+	case "running":
+		return "Active development runtime"
+	case "stopped":
+		return "Paused — restart when needed"
+	case "failed":
+		return "Investigate runtime failure"
+	case "archived":
+		return "Cleanup handoff"
+	default:
+		return "Current phase"
+	}
+}
+
+// LifecyclePhase is the short tracking phase copy for a lifecycle status.
+func LifecyclePhase(status string) string { return lifecyclePhase(status) }
+
+func lifecycleClass(status string) string {
+	switch status {
+	case "draft", "ready", "running", "stopped", "failed", "archived":
+		return status
+	default:
+		return "archived"
+	}
+}
+
+// LifecycleClass returns the prototype state-pill modifier for a lifecycle.
+func LifecycleClass(status string) string { return lifecycleClass(status) }
+
+func statusBadge(shouldRun, isLive bool) (label, class string) {
+	switch {
+	case isLive:
+		return "Running", "running"
+	case shouldRun:
+		return "Attention", "warning"
+	default:
+		return "Down", "down"
+	}
+}
+
+// StatusBadge returns the prototype reachability badge label and class.
+func StatusBadge(shouldRun, isLive bool) (label, class string) {
+	return statusBadge(shouldRun, isLive)
 }

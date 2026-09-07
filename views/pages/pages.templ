@@ -200,17 +200,17 @@ templ ProjectsPage(title string, path string, search string, lifecycle string, l
 }
 
 templ projectsBody(search string, lifecycle string, live string, items []ProjectListItem) {
-	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+	<div class="page-heading">
 		<div>
-			<h1 class="text-2xl font-bold text-brand-navy">Projects</h1>
-			<p class="text-brand-muted text-sm mt-0.5">Create projects, assign interns, and track lifecycle and runtime state.</p>
+			<h1>Projects</h1>
+			<p>Search the central registry and open an available internal URL.</p>
 		</div>
-		<a class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white text-sm font-bold rounded-lg transition-colors shadow-sm cursor-pointer" href="/projects/new">+ Add project</a>
+		<a class="button primary" href="/projects/new">+ Add project</a>
 	</div>
-	<section class="bg-white border border-brand-line rounded-lg shadow-sm overflow-hidden">
-		<form class="flex flex-wrap items-center gap-3 p-4 border-b border-brand-line" method="get" x-target="project-table">
-			<input class="w-full max-w-md flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 placeholder-slate-400 font-normal transition-colors" name="q" value={ search } placeholder="Search projects" aria-label="Search projects"/>
-			<select name="lifecycle_status" aria-label="Filter by lifecycle" onchange="this.form.requestSubmit()" class="px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer">
+	<section class="panel">
+		<form class="toolbar" method="get" x-target="project-table">
+			<input name="q" value={ search } type="search" placeholder="Search projects, owners, or ports" aria-label="Search projects"/>
+			<select name="lifecycle_status" aria-label="Filter by lifecycle" onchange="this.form.requestSubmit()">
 				<option value="" selected?={ lifecycle == "" }>All lifecycles</option>
 				<option value="draft" selected?={ lifecycle == "draft" }>Draft</option>
 				<option value="ready" selected?={ lifecycle == "ready" }>Ready</option>
@@ -219,56 +219,55 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 				<option value="failed" selected?={ lifecycle == "failed" }>Failed</option>
 				<option value="archived" selected?={ lifecycle == "archived" }>Archived</option>
 			</select>
-			<select name="is_live" aria-label="Filter by live state" onchange="this.form.requestSubmit()" class="px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer">
-				<option value="" selected?={ live == "" }>All runtime</option>
-				<option value="true" selected?={ live == "true" }>Live</option>
-				<option value="false" selected?={ live == "false" }>Not live</option>
+			<select name="is_live" aria-label="Filter by live state" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ live == "" }>All statuses</option>
+				<option value="true" selected?={ live == "true" }>Running</option>
+				<option value="false" selected?={ live == "false" }>Down</option>
 			</select>
-			<button class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer">Search</button>
+			<button class="button secondary" type="submit">Search</button>
 		</form>
-		<div id="project-table" class="overflow-x-auto">
-			<table class="w-full text-left border-collapse">
+		<div class="panel-body table-wrap" id="project-table">
+			<table class="hub-table">
 				<thead>
-					<tr class="border-b border-brand-line bg-slate-50/75">
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Interns</th>
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Lifecycle</th>
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Runtime</th>
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Updated</th>
+					<tr>
+						<th>Project</th>
+						<th>Intern</th>
+						<th>Status</th>
+						<th>Main port</th>
+						<th>Tracking</th>
+						<th>Internal URL</th>
+						<th></th>
 					</tr>
 				</thead>
-				<tbody class="divide-y divide-slate-100">
+				<tbody>
 					for _, item := range items {
-						<tr class="hover:bg-slate-50/60 transition-colors">
-							<td class="px-5 py-3.5 text-sm font-bold text-brand-navy whitespace-nowrap">
-								<a class="text-brand-blue hover:underline" href={ "/projects/" + item.Slug + "/edit" }>{ item.Name }</a>
+						<tr>
+							<td>
+								<a class="project-name" href={ "/projects/" + item.Slug }>{ item.Name }</a>
 							</td>
-							<td class="px-5 py-3.5 text-sm text-slate-600">{ item.Interns }</td>
-							<td class="px-5 py-3.5 text-sm whitespace-nowrap">
-								<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-									{ lifecycleLabel(item.LifecycleStatus) }
-								</span>
+							<td>{ item.Interns }</td>
+							<td>
+								<span class={ "badge " + item.StatusClass }>{ item.StatusLabel }</span>
 							</td>
-							<td class="px-5 py-3.5 text-sm whitespace-nowrap">
-								<div class="flex flex-wrap items-center gap-2">
-									if item.ShouldRun {
-										<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">Should run</span>
-									} else {
-										<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Stopped intent</span>
-									}
-									if item.IsLive {
-										<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">Live</span>
-									} else {
-										<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Not live</span>
-									}
-								</div>
+							<td>
+								<code class="hub-code">{ item.MainPort }</code>
 							</td>
-							<td class="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">{ item.UpdatedAt }</td>
+							<td>
+								<span class={ "state-pill " + item.LifecycleClass }>{ item.LifecycleLabel }</span>
+							</td>
+							<td>
+								<a class="table-action" href={ item.URL } target="_blank" rel="noreferrer">{ item.URLLabel } ↗</a>
+							</td>
+							<td>
+								<a class="table-action" href={ "/projects/" + item.Slug }>View</a>
+							</td>
 						</tr>
 					}
 					if len(items) == 0 {
 						<tr>
-							<td colspan="5" class="px-5 py-12 text-center text-brand-muted text-sm">No projects found.</td>
+							<td colspan="7">
+								<div class="empty-state">No projects match your search.</div>
+							</td>
 						</tr>
 					}
 				</tbody>
@@ -281,8 +280,137 @@ templ ProjectFormPage(data ProjectFormData) {
 	@layouts.Shell(data.Title, data.Path, projectFormBody(data))
 }
 
+templ ProjectDetailPage(data ProjectDetailData) {
+	@layouts.Shell(data.Name, data.Path, projectDetailBody(data))
+}
+
+templ projectDetailBody(data ProjectDetailData) {
+	<a class="breadcrumb" href="/projects">Projects / <span>{ data.Name }</span></a>
+	<div class="project-hero">
+		<div>
+			<div class="title-row">
+				<h1>{ data.Name }</h1>
+				<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
+			</div>
+			<a href={ data.URL } target="_blank" rel="noreferrer">{ data.URLLabel } ↗</a>
+			if data.Description != "" {
+				<p>{ data.Description }</p>
+			}
+		</div>
+		<div class="project-hero-actions">
+			<a class="button secondary" href={ "/projects/" + data.Slug + "/edit" }>Edit</a>
+			<a class="button primary" href={ data.URL } target="_blank" rel="noreferrer">Open project ↗</a>
+		</div>
+	</div>
+	<div class="detail-grid">
+		<section class="panel">
+			<div class="panel-head"><h2>Project details</h2></div>
+			<dl class="hub-dl">
+				<div>
+					<dt>Owner</dt>
+					<dd>{ data.Owners }</dd>
+				</div>
+				<div>
+					<dt>Created</dt>
+					<dd>{ data.CreatedAt }</dd>
+				</div>
+				<div>
+					<dt>Last updated</dt>
+					<dd>{ data.UpdatedAt }</dd>
+				</div>
+			</dl>
+		</section>
+		<section class="panel">
+			<div class="panel-head"><h2>Deployment configuration</h2></div>
+			<dl class="hub-dl four-up">
+				<div>
+					<dt>Host server</dt>
+					<dd>—</dd>
+				</div>
+				<div>
+					<dt>Main port</dt>
+					<dd><code class="hub-code">{ data.MainPort }</code></dd>
+				</div>
+				<div>
+					<dt>Protocol</dt>
+					<dd>HTTP</dd>
+				</div>
+				<div>
+					<dt>Reachability</dt>
+					<dd><span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span></dd>
+				</div>
+			</dl>
+		</section>
+	</div>
+	<section class="panel tracking-panel">
+		<div class="panel-head"><h2>Project tracking</h2></div>
+		<div class="tracking-card-body">
+			<div class="tracking-topline">
+				<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
+				<strong>{ data.LifecyclePhase }</strong>
+			</div>
+			<div class="tracking-meta">
+				<div>
+					<span>Last update</span>
+					<strong>{ data.UpdatedAt }</strong>
+				</div>
+				<div>
+					<span>Runtime intent</span>
+					<strong>{ data.RuntimeIntent }</strong>
+				</div>
+			</div>
+		</div>
+	</section>
+	<section class="panel" x-data="{ confirmArchive: false }">
+		<div class="panel-head"><h2>Project setup</h2></div>
+		<dl class="hub-dl setup">
+			<div>
+				<dt>Directory</dt>
+				<dd><code class="hub-code">{ data.Directory }</code></dd>
+			</div>
+			<div>
+				<dt>Entry point</dt>
+				<dd><code class="hub-code">{ data.StartupCommand }</code></dd>
+			</div>
+			<div>
+				<dt>Allocated ports</dt>
+				<dd><span class="port main">{ data.MainPort } main</span></dd>
+			</div>
+		</dl>
+		if !data.Archived {
+			<div class="archive">
+				<div class="archive-label">
+					<h3>Archive project</h3>
+					<p>This hides the project from active discovery and frees its assigned ports to the shared pool.</p>
+				</div>
+				<button class="link-danger" type="button" @click="confirmArchive = true" x-show="!confirmArchive">Archive</button>
+			</div>
+			<div class="archive-confirm" x-show="confirmArchive" x-cloak>
+				<p>This action hides the project and frees its ports. Lifecycle can be changed later from Edit.</p>
+				<div class="archive-confirm-actions">
+					<button class="button secondary" type="button" @click="confirmArchive = false">Cancel</button>
+					<form method="post" action={ "/projects/" + data.Slug + "/archive" }>
+						<button class="button danger" type="submit">Confirm archive</button>
+					</form>
+				</div>
+			</div>
+		} else {
+			<div class="archive">
+				<div class="archive-label">
+					<h3>Archived</h3>
+					<p>This project is archived.</p>
+				</div>
+			</div>
+		}
+	</section>
+}
+
 templ projectFormBody(data ProjectFormData) {
-	<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3" href="/projects">← Projects</a>
+	if data.IsNew {
+		<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3" href="/projects">← Projects</a>
+	} else {
+		<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3" href={ "/projects/" + data.Slug }>← { data.Name }</a>
+	}
 	<h1 class="text-2xl font-bold text-brand-navy mb-4">{ data.Title }</h1>
 	if data.Error != "" {
 		<div class="max-w-xl p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">

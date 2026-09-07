@@ -29,10 +29,21 @@ var (
 type Service struct {
 	db      *sql.DB
 	queries *db.Queries
+	baseURL string
 }
 
-func NewService(database *sql.DB, queries *db.Queries) *Service {
-	return &Service{db: database, queries: queries}
+func NewService(database *sql.DB, queries *db.Queries, baseURL string) *Service {
+	return &Service{db: database, queries: queries, baseURL: strings.TrimSpace(baseURL)}
+}
+
+// ProjectURL builds the public project URL from the configured base URL and slug.
+func (s *Service) ProjectURL(slug string) string {
+	base := strings.TrimRight(s.baseURL, "/")
+	slug = strings.Trim(slug, "/")
+	if base == "" {
+		return "/" + slug
+	}
+	return base + "/" + slug
 }
 
 // ProjectWithInterns is a project row plus its assigned interns.
@@ -221,6 +232,33 @@ func (s *Service) Update(ctx context.Context, slug string, in UpdateInput) (Proj
 		return ProjectWithInterns{}, err
 	}
 	if err := tx.Commit(); err != nil {
+		return ProjectWithInterns{}, err
+	}
+	interns, err := s.queries.ListProjectInterns(ctx, project.ID)
+	if err != nil {
+		return ProjectWithInterns{}, err
+	}
+	return ProjectWithInterns{Project: project, Interns: interns}, nil
+}
+
+func (s *Service) Archive(ctx context.Context, slug string) (ProjectWithInterns, error) {
+	existing, err := s.queries.GetProjectBySlug(ctx, slug)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ProjectWithInterns{}, ErrNotFound
+	}
+	if err != nil {
+		return ProjectWithInterns{}, err
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	project, err := s.queries.UpdateProject(ctx, db.UpdateProjectParams{
+		Name:            existing.Name,
+		Description:     existing.Description,
+		ShouldRun:       0,
+		LifecycleStatus: "archived",
+		UpdatedAt:       now,
+		ID:              existing.ID,
+	})
+	if err != nil {
 		return ProjectWithInterns{}, err
 	}
 	interns, err := s.queries.ListProjectInterns(ctx, project.ID)

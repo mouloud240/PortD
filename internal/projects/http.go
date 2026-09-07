@@ -37,7 +37,7 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 		search,
 		lifecycle,
 		liveParam,
-		projectListItems(items),
+		s.projectListItems(items),
 	))
 }
 
@@ -99,8 +99,19 @@ func (s *Service) CreatePost(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
-	http.Redirect(w, r, "/projects/"+created.Project.Slug+"/edit", http.StatusSeeOther)
+	http.Redirect(w, r, "/projects/"+created.Project.Slug, http.StatusSeeOther)
 	return nil
+}
+
+func (s *Service) DetailPage(w http.ResponseWriter, r *http.Request) error {
+	detail, err := s.GetBySlug(r.Context(), r.PathValue("slug"))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return httperr.NotFound("Project not found.", err)
+		}
+		return err
+	}
+	return httperr.Render(w, r, http.StatusOK, pages.ProjectDetailPage(s.projectDetailData(detail)))
 }
 
 func (s *Service) EditPage(w http.ResponseWriter, r *http.Request) error {
@@ -175,7 +186,20 @@ func (s *Service) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	form.IsLive = updated.Project.IsLive == 1
-	http.Redirect(w, r, "/projects/"+updated.Project.Slug+"/edit", http.StatusSeeOther)
+	http.Redirect(w, r, "/projects/"+updated.Project.Slug, http.StatusSeeOther)
+	return nil
+}
+
+func (s *Service) ArchivePost(w http.ResponseWriter, r *http.Request) error {
+	slug := r.PathValue("slug")
+	archived, err := s.Archive(r.Context(), slug)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return httperr.NotFound("Project not found.", err)
+		}
+		return err
+	}
+	http.Redirect(w, r, "/projects/"+archived.Project.Slug, http.StatusSeeOther)
 	return nil
 }
 
@@ -200,24 +224,82 @@ func (s *Service) internOptions(r *http.Request, selected []string) ([]pages.Int
 	return options, nil
 }
 
-func projectListItems(items []ProjectWithInterns) []pages.ProjectListItem {
+func (s *Service) projectListItems(items []ProjectWithInterns) []pages.ProjectListItem {
 	out := make([]pages.ProjectListItem, 0, len(items))
 	for _, item := range items {
 		names := make([]string, 0, len(item.Interns))
 		for _, intern := range item.Interns {
 			names = append(names, intern.FullName)
 		}
+		shouldRun := item.Project.ShouldRun == 1
+		isLive := item.Project.IsLive == 1
+		statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
+		url := s.ProjectURL(item.Project.Slug)
 		out = append(out, pages.ProjectListItem{
 			Name:            item.Project.Name,
 			Slug:            item.Project.Slug,
 			Interns:         strings.Join(names, ", "),
+			StatusLabel:     statusLabel,
+			StatusClass:     statusClass,
 			LifecycleStatus: item.Project.LifecycleStatus,
-			ShouldRun:       item.Project.ShouldRun == 1,
-			IsLive:          item.Project.IsLive == 1,
+			LifecycleLabel:  pages.LifecycleLabel(item.Project.LifecycleStatus),
+			LifecycleClass:  pages.LifecycleClass(item.Project.LifecycleStatus),
+			MainPort:        "—",
+			URL:             url,
+			URLLabel:        urlLabel(url),
 			UpdatedAt:       formatUpdatedAt(item.Project.UpdatedAt),
 		})
 	}
 	return out
+}
+
+func (s *Service) projectDetailData(detail ProjectWithInterns) pages.ProjectDetailData {
+	names := make([]string, 0, len(detail.Interns))
+	for _, intern := range detail.Interns {
+		names = append(names, intern.FullName)
+	}
+	owners := strings.Join(names, ", ")
+	if owners == "" {
+		owners = "—"
+	}
+	shouldRun := detail.Project.ShouldRun == 1
+	isLive := detail.Project.IsLive == 1
+	statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
+	url := s.ProjectURL(detail.Project.Slug)
+	runtimeIntent := "Stopped intent"
+	if shouldRun {
+		runtimeIntent = "Should run"
+	}
+	return pages.ProjectDetailData{
+		Path:            "/projects",
+		Name:            detail.Project.Name,
+		Slug:            detail.Project.Slug,
+		Description:     detail.Project.Description,
+		Owners:          owners,
+		CreatedAt:       formatUpdatedAt(detail.Project.CreatedAt),
+		UpdatedAt:       formatUpdatedAt(detail.Project.UpdatedAt),
+		Directory:       detail.Project.Directory,
+		StartupCommand:  detail.Project.StartupCommand,
+		LifecycleStatus: detail.Project.LifecycleStatus,
+		LifecycleLabel:  pages.LifecycleLabel(detail.Project.LifecycleStatus),
+		LifecycleClass:  pages.LifecycleClass(detail.Project.LifecycleStatus),
+		LifecyclePhase:  pages.LifecyclePhase(detail.Project.LifecycleStatus),
+		RuntimeIntent:   runtimeIntent,
+		ShouldRun:       shouldRun,
+		IsLive:          isLive,
+		StatusLabel:     statusLabel,
+		StatusClass:     statusClass,
+		URL:             url,
+		URLLabel:        urlLabel(url),
+		MainPort:        "—",
+		Archived:        detail.Project.LifecycleStatus == "archived",
+	}
+}
+
+func urlLabel(raw string) string {
+	raw = strings.TrimPrefix(raw, "https://")
+	raw = strings.TrimPrefix(raw, "http://")
+	return raw
 }
 
 func formatUpdatedAt(value string) string {

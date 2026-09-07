@@ -53,6 +53,14 @@ func TestCreateListUpdateAssignsInterns(t *testing.T) {
 	if len(updated.Interns) != 1 || updated.Interns[0].ID != "i1" {
 		t.Fatalf("interns = %+v", updated.Interns)
 	}
+
+	archived, err := service.Archive(context.Background(), "demo-app")
+	if err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+	if archived.Project.LifecycleStatus != "archived" || archived.Project.ShouldRun != 0 {
+		t.Fatalf("archived = %+v", archived.Project)
+	}
 }
 
 func TestCreateRejectsInvalidAndConflict(t *testing.T) {
@@ -96,6 +104,14 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
+func TestProjectURL(t *testing.T) {
+	t.Parallel()
+	service, _ := testService(t)
+	if got := service.ProjectURL("demo-app"); got != "https://portd.example.test/demo-app" {
+		t.Fatalf("ProjectURL = %q", got)
+	}
+}
+
 func testService(t *testing.T) (*Service, *db.Queries) {
 	t.Helper()
 	database, err := sql.Open("sqlite", ":memory:")
@@ -116,7 +132,7 @@ func testService(t *testing.T) (*Service, *db.Queries) {
 		}
 	}
 	queries := db.New(database)
-	return NewService(database, queries), queries
+	return NewService(database, queries, "https://portd.example.test"), queries
 }
 
 func createIntern(t *testing.T, queries *db.Queries, id, name string) {

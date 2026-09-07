@@ -1,7 +1,10 @@
 // Package config loads PortD's process configuration.
 package config
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 const (
 	defaultHTTPAddr      = "127.0.0.1:8080"
@@ -26,7 +29,10 @@ func Load() Config {
 		address = defaultHTTPAddr
 	}
 
-	baseURL := os.Getenv("BASE_URL")
+	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("BASE_URL")), "/")
+	if baseURL == "" {
+		baseURL = "http://" + address
+	}
 	databasePath := os.Getenv("PORTD_DB_PATH")
 	if databasePath == "" {
 		databasePath = defaultDBPath

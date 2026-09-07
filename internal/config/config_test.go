@@ -6,13 +6,17 @@ func TestLoadUsesDefaultHTTPAddress(t *testing.T) {
 	t.Setenv("PORTD_HTTP_ADDR", "")
 	t.Setenv("BASE_URL", "")
 
-	if got := Load().HTTPAddr; got != defaultHTTPAddr {
-		t.Fatalf("HTTPAddr = %q, want %q", got, defaultHTTPAddr)
+	cfg := Load()
+	if cfg.HTTPAddr != defaultHTTPAddr {
+		t.Fatalf("HTTPAddr = %q, want %q", cfg.HTTPAddr, defaultHTTPAddr)
+	}
+	if want := "http://" + defaultHTTPAddr; cfg.BaseURL != want {
+		t.Fatalf("BaseURL = %q, want %q", cfg.BaseURL, want)
 	}
 }
 
 func TestLoadReadsBaseURL(t *testing.T) {
-	t.Setenv("BASE_URL", "https://portd.example.test")
+	t.Setenv("BASE_URL", "https://portd.example.test/")
 
 	if got := Load().BaseURL; got != "https://portd.example.test" {
 		t.Fatalf("BaseURL = %q, want %q", got, "https://portd.example.test")

@@ -77,7 +77,7 @@ func TestPlaceholderPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test")).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -107,7 +107,7 @@ func TestInternsListPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test")).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -137,7 +137,7 @@ func TestInternNewPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test")).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -168,7 +168,7 @@ func TestInternCreateValidationConflictAndNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries))
+	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"))
 	post := func(path string, form url.Values) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -259,5 +259,5 @@ func testDB(t *testing.T) *sql.DB {
 func testHandler(t *testing.T, database *sql.DB, authService *auth.Service) http.Handler {
 	t.Helper()
 	queries := db.New(database)
-	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries))
+	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"))
 }

@@ -37,7 +37,7 @@ func main() {
 	queries := db.New(database)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           app.NewHandler(auth.NewService(queries, cfg.AdminUsername, cfg.AdminPassword), internsvc.NewService(queries), projectsvc.NewService(database, queries)),
+		Handler:           app.NewHandler(auth.NewService(queries, cfg.AdminUsername, cfg.AdminPassword), internsvc.NewService(queries), projectsvc.NewService(database, queries, cfg.BaseURL)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

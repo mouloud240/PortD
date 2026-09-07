@@ -51,9 +51,11 @@ views/pages/pages_templ.go           (generated, committed)
 | `POST /profile` | `app.profileUpdate` | re-render `ProfilePage` on 422/409, else redirect `/profile` (303); admins redirect (303) unchanged |
 | `GET /projects` | `projects.ListPage` | `pages.ProjectsPage(...)` |
 | `GET /projects/new` | `projects.NewPage` | `pages.ProjectFormPage(...)` |
-| `POST /projects` | `projects.CreatePost` | re-render on 422/409, else redirect `/projects/{slug}/edit` (303) |
+| `POST /projects` | `projects.CreatePost` | re-render on 422/409, else redirect `/projects/{slug}` (303) |
+| `GET /projects/{slug}` | `projects.DetailPage` | `pages.ProjectDetailPage(...)` or 404 |
 | `GET /projects/{slug}/edit` | `projects.EditPage` | `pages.ProjectFormPage(...)` or 404 |
-| `POST /projects/{slug}` | `projects.UpdatePost` | re-render on 422, 404 if gone, else redirect (303) |
+| `POST /projects/{slug}` | `projects.UpdatePost` | re-render on 422, 404 if gone, else redirect `/projects/{slug}` (303) |
+| `POST /projects/{slug}/archive` | `projects.ArchivePost` | redirect `/projects/{slug}` (303) |
 | `GET /interns` | `interns.ListPage` | `pages.InternsPage("Interns", path, q, ListItems(rows))` |
 | `GET /interns/new` | `interns.NewPage` | `pages.InternFormPage(New InternFormData{IsNew:true})` |
 | `POST /interns` | `interns.CreatePost` | re-render `InternFormPage` on 422/409, else redirect `/interns/{id}` (303) |
