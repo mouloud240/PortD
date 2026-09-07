@@ -40,7 +40,7 @@ func (s *Service) ListPage(w http.ResponseWriter, r *http.Request) error {
 		search,
 		lifecycle,
 		liveParam,
-		s.projectListItems(r.Context(), items),
+		s.ProjectListItems(r.Context(), items),
 	))
 }
 
@@ -358,7 +358,7 @@ func (s *Service) internOptions(r *http.Request, selected []string) ([]pages.Int
 	return options, nil
 }
 
-func (s *Service) projectListItems(ctx context.Context, items []ProjectWithInterns) []pages.ProjectListItem {
+func (s *Service) ProjectListItems(ctx context.Context, items []ProjectWithInterns) []pages.ProjectListItem {
 	out := make([]pages.ProjectListItem, 0, len(items))
 	for _, item := range items {
 		names := make([]string, 0, len(item.Interns))

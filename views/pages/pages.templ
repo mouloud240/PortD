@@ -7,11 +7,11 @@ import (
 	"github.com/portd/views/layouts"
 )
 
-templ DashboardPage() {
-	@layouts.Shell("Overview", "/dashboard", dashboardBody())
+templ DashboardPage(data DashboardData) {
+	@layouts.Shell("Overview", "/dashboard", dashboardBody(data))
 }
 
-templ dashboardBody() {
+templ dashboardBody(data DashboardData) {
 	<div class="page-heading">
 		<div>
 			<h1>Overview</h1>
@@ -20,10 +20,16 @@ templ dashboardBody() {
 		<a class="button primary" href="/projects/new">+ Add project</a>
 	</div>
 	<div class="stat-grid">
-		<article><span>Active projects</span><strong>12</strong><small class="positive">+3 this month</small></article>
-		<article><span>Running services</span><strong>11<em>/12</em></strong><small>Reachability snapshot</small></article>
-		<article><span>Used ports</span><strong>11<em>/50</em></strong><small class="warning">1 unknown</small></article>
-		<article><span>Active interns</span><strong>18</strong><small>Current placements</small></article>
+		<article><span>Active projects</span><strong>{ strconv.Itoa(data.ActiveProjects) }</strong><small>Non-archived</small></article>
+		<article><span>Running services</span><strong>{ strconv.Itoa(data.LiveServices) }<em>/{ strconv.Itoa(data.TotalServices) }</em></strong><small>Reachability snapshot</small></article>
+		<article><span>Used ports</span><strong>{ strconv.Itoa(data.AssignedPorts) }</strong>
+			if data.UnknownPorts > 0 {
+				<small class="warning">{ strconv.Itoa(data.UnknownPorts) } unknown</small>
+			} else {
+				<small>All registered</small>
+			}
+		</article>
+		<article><span>Active interns</span><strong>{ strconv.Itoa(data.ActiveInterns) }</strong><small>Current placements</small></article>
 	</div>
 	<div class="two-column">
 		<section class="panel">
@@ -45,24 +51,21 @@ templ dashboardBody() {
 						</tr>
 					</thead>
 					<tbody>
-						<tr>
-							<td><a class="project-name" href="/projects/internship-management-system">Internship Management System</a></td>
-							<td><span class="badge running">Running</span></td>
-							<td><code class="hub-code">3001</code></td>
-							<td><a class="table-action" href="/projects/internship-management-system">View</a></td>
-						</tr>
-						<tr>
-							<td><a class="project-name" href="/projects/network-monitor">Network Monitor</a></td>
-							<td><span class="badge running">Running</span></td>
-							<td><code class="hub-code">3002</code></td>
-							<td><a class="table-action" href="/projects/network-monitor">View</a></td>
-						</tr>
-						<tr>
-							<td><a class="project-name" href="/projects/hr-portal">HR Portal</a></td>
-							<td><span class="badge down">Down</span></td>
-							<td><code class="hub-code">3003</code></td>
-							<td><a class="table-action" href="/projects/hr-portal">View</a></td>
-						</tr>
+						for _, item := range data.Projects {
+							<tr>
+								<td><a class="project-name" href={ "/projects/" + item.Slug }>{ item.Name }</a></td>
+								<td><span class={ "badge " + item.StatusClass }>{ item.StatusLabel }</span></td>
+								<td><code class="hub-code">{ item.MainPort }</code></td>
+								<td><a class="table-action" href={ "/projects/" + item.Slug }>View</a></td>
+							</tr>
+						}
+						if len(data.Projects) == 0 {
+							<tr>
+								<td colspan="4">
+									<div class="empty-state">No active projects yet.</div>
+								</td>
+							</tr>
+						}
 					</tbody>
 				</table>
 			</div>

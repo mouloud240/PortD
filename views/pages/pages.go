@@ -155,6 +155,17 @@ type PortsPageData struct {
 	Rows      []PortRow
 }
 
+// DashboardData is the finished overview value; activity stays static for now.
+type DashboardData struct {
+	ActiveProjects int
+	LiveServices   int
+	TotalServices  int
+	AssignedPorts  int
+	UnknownPorts   int
+	ActiveInterns  int
+	Projects       []ProjectListItem
+}
+
 // activeJS renders a Go bool as a JS boolean literal for x-init.
 func activeJS(active bool) string {
 	if active {

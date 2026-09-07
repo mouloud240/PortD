@@ -84,3 +84,23 @@ func TestSnapshotResolvesAndPrunes(t *testing.T) {
 		t.Fatalf("port 4000 pid = %+v, want 9", rows[0].ProcessID)
 	}
 }
+
+func TestStatsCountsAssignedAndUnknown(t *testing.T) {
+	_, queries := testDB(t)
+	svc := NewService(queries, stubScanner{})
+	assigned, unknown, err := svc.Stats(context.Background())
+	if err != nil || assigned != 1 || unknown != 0 {
+		t.Fatalf("stats = %d, %d, %v; want 1, 0", assigned, unknown, err)
+	}
+	if _, err := svc.Snapshot(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	live := NewService(queries, stubScanner{ports: []ListeningPort{{Port: 4000}}})
+	if _, err := live.Snapshot(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	assigned, unknown, err = live.Stats(context.Background())
+	if err != nil || assigned != 1 || unknown != 1 {
+		t.Fatalf("stats = %d, %d, %v; want 1, 1", assigned, unknown, err)
+	}
+}

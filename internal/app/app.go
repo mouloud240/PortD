@@ -22,8 +22,8 @@ func NewHandler(authService *auth.Service, internService *internsvc.Service, pro
 	mux.Handle("GET /login", httperr.Handle(authService.LoginPage))
 	mux.Handle("POST /login", httperr.Handle(authService.LoginPost))
 	mux.Handle("POST /logout", httperr.Handle(authService.LogoutPost))
-	mux.Handle("GET /", httperr.Handle(requireSession(authService, dashboard)))
-	mux.Handle("GET /dashboard", httperr.Handle(requireSession(authService, dashboard)))
+	mux.Handle("GET /", httperr.Handle(requireSession(authService, dashboard(projectService, internService, portService))))
+	mux.Handle("GET /dashboard", httperr.Handle(requireSession(authService, dashboard(projectService, internService, portService))))
 	mux.Handle("GET /profile", httperr.Handle(requireSession(authService, profilePage(authService, internService))))
 	mux.Handle("POST /profile", httperr.Handle(requireSession(authService, profileUpdate(authService, internService))))
 	for path, title := range map[string]string{"/activity": "Activity"} {
@@ -84,8 +84,31 @@ func requireAdmin(service *auth.Service, next httperr.Handler) httperr.Handler {
 	}
 }
 
-func dashboard(w http.ResponseWriter, r *http.Request) error {
-	return httperr.Render(w, r, http.StatusOK, pages.DashboardPage())
+func dashboard(projectService *projectsvc.Service, internService *internsvc.Service, portService *portsvc.Service) httperr.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+		overview, err := projectService.Overview(ctx)
+		if err != nil {
+			return err
+		}
+		interns, err := internService.List(ctx, "", 1)
+		if err != nil {
+			return err
+		}
+		assigned, unknown, err := portService.Stats(ctx)
+		if err != nil {
+			return err
+		}
+		return httperr.Render(w, r, http.StatusOK, pages.DashboardPage(pages.DashboardData{
+			ActiveProjects: overview.Active,
+			LiveServices:   overview.Live,
+			TotalServices:  overview.Active,
+			AssignedPorts:  assigned,
+			UnknownPorts:   unknown,
+			ActiveInterns:  len(interns),
+			Projects:       projectService.ProjectListItems(ctx, overview.Recent),
+		}))
+	}
 }
 
 func profilePage(authService *auth.Service, internService *internsvc.Service) httperr.Handler {

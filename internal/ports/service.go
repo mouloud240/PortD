@@ -22,6 +22,24 @@ func NewService(queries *db.Queries, scanner Scanner) *Service {
 	return &Service{queries: queries, scanner: scanner}
 }
 
+// Stats reports assigned ports and unregistered observations without scanning.
+func (s *Service) Stats(ctx context.Context) (assigned, unknown int, err error) {
+	ports, err := s.queries.ListAssignedPorts(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	rows, err := s.queries.ListPortObservations(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, row := range rows {
+		if !row.ProjectID.Valid {
+			unknown++
+		}
+	}
+	return len(ports), unknown, nil
+}
+
 // Snapshot scans, upserts current ports, prunes stale rows, returns the page rows.
 func (s *Service) Snapshot(ctx context.Context) ([]db.PortObservation, error) {
 	live, err := s.scanner.ListeningPorts(ctx)

@@ -108,6 +108,33 @@ func TestGetBySlugNotFound(t *testing.T) {
 	}
 }
 
+func TestOverviewSkipsArchived(t *testing.T) {
+	t.Parallel()
+	service, queries := testService(t)
+	createIntern(t, queries, "i1", "Alice")
+	ctx := context.Background()
+	if _, err := service.Create(ctx, CreateInput{Name: "Live App", InternIDs: []string{"i1"}, PortCount: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Create(ctx, CreateInput{Name: "Old App", InternIDs: []string{"i1"}, PortCount: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Archive(ctx, "old-app"); err != nil {
+		t.Fatal(err)
+	}
+	overview, err := service.Overview(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if overview.Active != 1 || len(overview.Recent) != 1 || overview.Recent[0].Project.Slug != "live-app" {
+		t.Fatalf("overview = %+v", overview)
+	}
+	items := service.ProjectListItems(ctx, overview.Recent)
+	if len(items) != 1 || items[0].MainPort == "—" {
+		t.Fatalf("items = %+v, want resolved main port", items)
+	}
+}
+
 func TestSlugify(t *testing.T) {
 	t.Parallel()
 	if got := slugify(" Hello World! "); got != "hello-world" {

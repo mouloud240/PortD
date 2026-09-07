@@ -121,6 +121,47 @@ func (s *Service) ListActiveInterns(ctx context.Context) ([]db.Intern, error) {
 	return s.queries.ListActiveInterns(ctx)
 }
 
+type Overview struct {
+	Active int
+	Live   int
+	Recent []ProjectWithInterns
+}
+
+func (s *Service) Overview(ctx context.Context) (Overview, error) {
+	rows, err := s.queries.ListProjects(ctx, db.ListProjectsParams{
+		Column1:         "",
+		Column2:         sql.NullString{},
+		Column3:         sql.NullString{},
+		Column4:         sql.NullString{},
+		Column5:         "",
+		LifecycleStatus: "",
+		Column7:         -1,
+		IsLive:          0,
+	})
+	if err != nil {
+		return Overview{}, err
+	}
+	out := Overview{}
+	for _, project := range rows {
+		if project.LifecycleStatus == "archived" {
+			continue
+		}
+		out.Active++
+		if project.IsLive == 1 {
+			out.Live++
+		}
+		if len(out.Recent) >= 4 {
+			continue
+		}
+		interns, err := s.queries.ListProjectInterns(ctx, project.ID)
+		if err != nil {
+			return Overview{}, err
+		}
+		out.Recent = append(out.Recent, ProjectWithInterns{Project: project, Interns: interns})
+	}
+	return out, nil
+}
+
 func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithInterns, error) {
 	name := strings.TrimSpace(in.Name)
 	slug := strings.TrimSpace(in.Slug)
