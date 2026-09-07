@@ -61,6 +61,14 @@ type Project struct {
 	UpdatedAt       string `json:"updated_at"`
 }
 
+type ProjectHealthcheck struct {
+	ID             string `json:"id"`
+	ProjectID      string `json:"project_id"`
+	Endpoint       string `json:"endpoint"`
+	ExpectedStatus int64  `json:"expected_status"`
+	CreatedAt      string `json:"created_at"`
+}
+
 type ProjectIntern struct {
 	ProjectID string `json:"project_id"`
 	InternID  string `json:"intern_id"`

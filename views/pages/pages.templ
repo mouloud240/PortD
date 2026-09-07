@@ -425,8 +425,10 @@ templ projectDetailBody(data ProjectDetailData) {
 			<div class="title-row">
 				<h1>{ data.Name }</h1>
 				<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
+				<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
 			</div>
 			<a href={ data.URL } target="_blank" rel="noreferrer">{ data.URLLabel } ↗</a>
+			<p>Owned by { data.Owners } · Main port <code class="hub-code">{ data.MainPort }</code></p>
 			if data.Description != "" {
 				<p>{ data.Description }</p>
 			}
@@ -455,27 +457,71 @@ templ projectDetailBody(data ProjectDetailData) {
 			</dl>
 		</section>
 		<section class="panel">
-			<div class="panel-head"><h2>Deployment configuration</h2></div>
+			<div class="panel-head"><h2>Runtime</h2></div>
 			<dl class="hub-dl four-up">
-				<div>
-					<dt>Host server</dt>
-					<dd>—</dd>
-				</div>
 				<div>
 					<dt>Main port</dt>
 					<dd><code class="hub-code">{ data.MainPort }</code></dd>
 				</div>
 				<div>
-					<dt>Protocol</dt>
-					<dd>HTTP</dd>
+					<dt>Status</dt>
+					<dd><span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span></dd>
 				</div>
 				<div>
-					<dt>Reachability</dt>
-					<dd><span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span></dd>
+					<dt>Observed</dt>
+					<dd>
+						if data.IsLive {
+							<span class="badge running">Live</span>
+						} else {
+							<span class="badge neutral">Not live</span>
+						}
+					</dd>
 				</div>
 			</dl>
 		</section>
 	</div>
+	<section class="panel">
+		<div class="panel-head">
+			<div>
+				<h2>Ports</h2>
+				<p>Only the main port gets a public link. Allocate or release on the <a class="table-action" href={ "/projects/" + data.Slug + "/edit" }>Edit page</a>.</p>
+			</div>
+		</div>
+		<div class="panel-body">
+			if data.PortError != "" {
+				<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+					{ data.PortError }
+				</div>
+			}
+			if len(data.AllocatedPorts) == 0 {
+				<p class="text-sm text-brand-muted">No ports assigned yet.</p>
+			} else {
+				<ul class="flex flex-col gap-2">
+					for _, port := range data.AllocatedPorts {
+						<li class="flex flex-wrap items-center gap-2">
+							<code class="hub-code">{ port.Port }</code>
+							if port.IsMain {
+								<span class="port main">main</span>
+							} else {
+								<span class="port">internal</span>
+								<form method="post" action={ "/projects/" + data.Slug + "/ports/promote" }>
+									<input type="hidden" name="port" value={ port.Port }/>
+									<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+									<button class="table-action" type="submit">Make main</button>
+								</form>
+							}
+							if port.Live {
+								<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
+									<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
+									Live
+								</span>
+							}
+						</li>
+					}
+				</ul>
+			}
+		</div>
+	</section>
 	<section class="panel">
 		<div class="panel-head">
 			<div>
@@ -540,33 +586,32 @@ templ projectDetailBody(data ProjectDetailData) {
 	</section>
 	<section class="panel">
 		<div class="panel-head"><h2>How to run this project</h2></div>
-		<dl class="hub-dl" style="display:grid;gap:20px">
-			<div>
-				<dt>1. Open your folder</dt>
-				<dd>All your files live in <code class="hub-code">{ data.Directory }</code>. Do your work there.</dd>
-			</div>
-			<div>
-				<dt>2. Use only your ports</dt>
-				<dd>
+		<div class="panel-body">
+			<ol class="flex flex-col gap-4 list-decimal ml-5 marker:font-bold marker:text-brand-navy">
+				<li>
+					<strong>Work in your folder.</strong>
+					<span class="text-brand-muted">All files live in <code class="hub-code">{ data.Directory }</code>.</span>
+				</li>
+				<li>
+					<strong>Bind your main port.</strong>
 					if data.MainPort != "—" {
-						Your main port is <code class="hub-code">{ data.MainPort }</code> — make your app listen on <code class="hub-code">localhost:{ data.MainPort }</code>.
+						<span class="text-brand-muted">Listen on <code class="hub-code">localhost:{ data.MainPort }</code>. Assigned ports only — never take another project's.</span>
 					} else {
-						Make your app listen on your main port (see Project setup below).
+						<span class="text-brand-muted">Listen on your main port (see Ports above). Assigned ports only — never take another project's.</span>
 					}
-					Use only the ports given to you. Never take another project's port. Only the main port gets a public link.
-				</dd>
-			</div>
-			<div>
-				<dt>3. Start your project</dt>
-				<dd>Run <code class="hub-code">{ data.StartupCommand }</code> (<code class="hub-code">start.sh</code> on Linux/Mac, <code class="hub-code">start.bat</code> on Windows). To stop it or start it again, use the Should run switch on the Edit page.</dd>
-			</div>
-			<div>
-				<dt>4. Know your files</dt>
-				<dd>Your folder has a start file (<code class="hub-code">start.sh</code> / <code class="hub-code">start.bat</code>) and a <code class="hub-code">README.md</code>. The README lists your ports and URL — read it first.</dd>
-			</div>
-		</dl>
+				</li>
+				<li>
+					<strong>Start it.</strong>
+					<span class="text-brand-muted">Run <code class="hub-code">{ data.StartupCommand }</code>. Toggle Should run on the Edit page to stop or restart.</span>
+				</li>
+				<li>
+					<strong>Read the README first.</strong>
+					<span class="text-brand-muted">It lists your ports and URL.</span>
+				</li>
+			</ol>
+		</div>
 	</section>
-	<section class="panel" style="margin-top:20px" x-data="{ confirmArchive: false }">
+	<section class="panel mt-5" x-data="{ confirmArchive: false }">
 		<div class="panel-head"><h2>Project setup</h2></div>
 		<dl class="hub-dl setup">
 			<div>
@@ -576,41 +621,6 @@ templ projectDetailBody(data ProjectDetailData) {
 			<div>
 				<dt>Entry point</dt>
 				<dd><code class="hub-code">{ data.StartupCommand }</code></dd>
-			</div>
-			<div>
-				<dt>Allocated ports</dt>
-				<dd>
-					if len(data.AllocatedPorts) == 0 {
-						<span class="text-brand-muted">No ports assigned yet.</span>
-					} else {
-						<ul class="flex flex-col gap-2">
-							for _, port := range data.AllocatedPorts {
-								<li class="flex flex-wrap items-center gap-2">
-									<code class="hub-code">{ port.Port }</code>
-									if port.IsMain {
-										<span class="port main">main</span>
-									} else {
-										<span class="port">internal</span>
-										<form method="post" action={ "/projects/" + data.Slug + "/ports/promote" }>
-											<input type="hidden" name="port" value={ port.Port }/>
-											<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
-											<button class="table-action" type="submit">Make main</button>
-										</form>
-									}
-									if port.Live {
-										<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
-											<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-											Live
-										</span>
-									}
-								</li>
-							}
-						</ul>
-					}
-					if data.PortError != "" {
-						<p class="text-sm font-semibold text-brand-red mt-2" role="alert">{ data.PortError }</p>
-					}
-				</dd>
 			</div>
 		</dl>
 		if !data.Archived {
