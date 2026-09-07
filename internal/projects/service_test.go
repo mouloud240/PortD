@@ -108,6 +108,41 @@ func TestGetBySlugNotFound(t *testing.T) {
 	}
 }
 
+func TestHealthcheckAddRemove(t *testing.T) {
+	t.Parallel()
+	service, queries := testService(t)
+	createIntern(t, queries, "i1", "Alice")
+	ctx := context.Background()
+	created, err := service.Create(ctx, CreateInput{Name: "Health App", InternIDs: []string{"i1"}, PortCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AddHealthcheck(ctx, created.Project.Slug, "notaurl", 200); err != ErrInvalid {
+		t.Fatalf("bad endpoint error = %v, want %v", err, ErrInvalid)
+	}
+	if _, err := service.AddHealthcheck(ctx, created.Project.Slug, "/health", 99); err != ErrInvalid {
+		t.Fatalf("bad status error = %v, want %v", err, ErrInvalid)
+	}
+	check, err := service.AddHealthcheck(ctx, created.Project.Slug, "/health", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if check.ExpectedStatus != 200 || check.Endpoint != "/health" {
+		t.Fatalf("healthcheck = %+v", check)
+	}
+	rows, err := queries.ListProjectHealthchecks(ctx, created.Project.ID)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("rows = %+v, %v", rows, err)
+	}
+	if err := service.RemoveHealthcheck(ctx, created.Project.Slug, check.ID); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = queries.ListProjectHealthchecks(ctx, created.Project.ID)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("rows = %+v, %v", rows, err)
+	}
+}
+
 func TestOverviewSkipsArchived(t *testing.T) {
 	t.Parallel()
 	service, queries := testService(t)

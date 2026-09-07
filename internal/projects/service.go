@@ -436,6 +436,42 @@ func (s *Service) PromotePort(ctx context.Context, slug string, port int64) erro
 	return portsvc.PromoteMain(ctx, s.db, s.queries, projectID, port)
 }
 
+func (s *Service) AddHealthcheck(ctx context.Context, slug, endpoint string, expectedStatus int) (db.ProjectHealthcheck, error) {
+	projectID, err := s.projectIDBySlug(ctx, slug)
+	if err != nil {
+		return db.ProjectHealthcheck{}, err
+	}
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" || len(endpoint) > 2048 || !validHealthEndpoint(endpoint) {
+		return db.ProjectHealthcheck{}, ErrInvalid
+	}
+	if expectedStatus == 0 {
+		expectedStatus = 200
+	}
+	if expectedStatus < 200 || expectedStatus > 599 {
+		return db.ProjectHealthcheck{}, ErrInvalid
+	}
+	return s.queries.AddProjectHealthcheck(ctx, db.AddProjectHealthcheckParams{
+		ID:             uuid.NewString(),
+		ProjectID:      projectID,
+		Endpoint:       endpoint,
+		ExpectedStatus: int64(expectedStatus),
+		CreatedAt:      time.Now().UTC().Format(time.RFC3339Nano),
+	})
+}
+
+func (s *Service) RemoveHealthcheck(ctx context.Context, slug, id string) error {
+	projectID, err := s.projectIDBySlug(ctx, slug)
+	if err != nil {
+		return err
+	}
+	return s.queries.DeleteProjectHealthcheck(ctx, db.DeleteProjectHealthcheckParams{ID: id, ProjectID: projectID})
+}
+
+func validHealthEndpoint(endpoint string) bool {
+	return strings.HasPrefix(endpoint, "/") || strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://")
+}
+
 func validateProjectFields(name, slug, lifecycle string, internIDs []string) error {
 	if len(name) < 2 || len(name) > 80 {
 		return ErrInvalid
