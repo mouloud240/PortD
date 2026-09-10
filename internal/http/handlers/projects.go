@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/portd/internal/auth"
+	db "github.com/portd/internal/db/generated"
 	"github.com/portd/internal/httperr"
 	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
@@ -77,6 +78,7 @@ func (h *ProjectsHandler) NewPage(w http.ResponseWriter, r *http.Request) error 
 		LifecycleStatus: "draft",
 		PortCount:       2,
 		IsNew:           true,
+		AccessMode:      projectsvc.AccessModeDirect,
 		Interns:         options,
 	}))
 }
@@ -103,6 +105,7 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		ShouldRun:       shouldRun,
 		PortCount:       portCount,
 		IsNew:           true,
+		AccessMode:      r.FormValue("access_mode"),
 	}
 	internIDs := r.Form["intern_ids"]
 	options, err := h.internOptions(r, internIDs)
@@ -124,6 +127,7 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		ShouldRun:       form.ShouldRun,
 		PortCount:       portCount,
 		CreatorInternID: creator,
+		AccessMode:      form.AccessMode,
 	})
 	if err != nil {
 		switch {
@@ -185,6 +189,7 @@ func (h *ProjectsHandler) EditPage(w http.ResponseWriter, r *http.Request) error
 		LifecycleStatus: detail.Project.LifecycleStatus,
 		ShouldRun:       detail.Project.ShouldRun == 1,
 		IsLive:          detail.Project.IsLive == 1,
+		AccessMode:      detail.Project.AccessMode,
 		Ports:           h.assignedPorts(r.Context(), detail.Project.ID),
 		PortError:       r.URL.Query().Get("port_error"),
 		Interns:         options,
@@ -206,6 +211,7 @@ func (h *ProjectsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) err
 		Description:     r.FormValue("description"),
 		LifecycleStatus: r.FormValue("lifecycle_status"),
 		ShouldRun:       shouldRun,
+		AccessMode:      r.FormValue("access_mode"),
 	}
 	internIDs := r.Form["intern_ids"]
 	options, err := h.internOptions(r, internIDs)
@@ -224,6 +230,7 @@ func (h *ProjectsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) err
 		InternIDs:       internIDs,
 		LifecycleStatus: form.LifecycleStatus,
 		ShouldRun:       form.ShouldRun,
+		AccessMode:      form.AccessMode,
 	})
 	if err != nil {
 		switch {
@@ -349,7 +356,7 @@ func (h *ProjectsHandler) ProjectListItems(ctx context.Context, items []projects
 		shouldRun := item.Project.ShouldRun == 1
 		isLive := item.Project.IsLive == 1
 		statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
-		url := h.service.ProjectURL(item.Project.Slug)
+		access := h.projectAccess(ctx, item.Project)
 		mainPort := "—"
 		if main, err := h.service.MainPort(ctx, item.Project.ID); err == nil {
 			mainPort = strconv.FormatInt(main.Port, 10)
@@ -364,8 +371,14 @@ func (h *ProjectsHandler) ProjectListItems(ctx context.Context, items []projects
 			LifecycleLabel:  pages.LifecycleLabel(item.Project.LifecycleStatus),
 			LifecycleClass:  pages.LifecycleClass(item.Project.LifecycleStatus),
 			MainPort:        mainPort,
-			URL:             url,
-			URLLabel:        urlLabel(url),
+			URL:             access.URL,
+			URLLabel:        access.URLLabel,
+			AccessMode:      access.Mode,
+			AccessLabel:     access.ModeLabel,
+			DirectURL:       access.DirectURL,
+			DirectURLLabel:  access.DirectURLLabel,
+			ProxiedURL:      access.ProxiedURL,
+			ProxiedURLLabel: access.ProxiedURLLabel,
 			UpdatedAt:       formatUpdatedAt(item.Project.UpdatedAt),
 		})
 	}
@@ -384,7 +397,7 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 	shouldRun := detail.Project.ShouldRun == 1
 	isLive := detail.Project.IsLive == 1
 	statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
-	url := h.service.ProjectURL(detail.Project.Slug)
+	access := h.projectAccess(ctx, detail.Project)
 	runtimeIntent := "Stopped intent"
 	if shouldRun {
 		runtimeIntent = "Should run"
@@ -427,8 +440,9 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 		IsLive:          isLive,
 		StatusLabel:     statusLabel,
 		StatusClass:     statusClass,
-		URL:             url,
-		URLLabel:        urlLabel(url),
+		URL:             access.URL,
+		URLLabel:        access.URLLabel,
+		Access:          access,
 		MainPort:        mainPort,
 		AllocatedPorts:  ports,
 		PortError:       portError,
@@ -436,6 +450,56 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 		HealthError:     healthError,
 		Archived:        detail.Project.LifecycleStatus == "archived",
 	}, nil
+}
+
+func (h *ProjectsHandler) projectAccess(ctx context.Context, project db.Project) pages.ProjectAccessData {
+	main, err := h.service.MainPort(ctx, project.ID)
+	if err != nil {
+		return pages.ProjectAccessData{Mode: project.AccessMode, ModeLabel: accessModeLabel(project.AccessMode)}
+	}
+	direct, err := h.service.DirectProjectURL(main.Port)
+	if err != nil {
+		direct = ""
+	}
+	proxied := h.service.ProjectURL(project.Slug)
+	access := pages.ProjectAccessData{
+		Mode:            project.AccessMode,
+		ModeLabel:       accessModeLabel(project.AccessMode),
+		DirectURL:       direct,
+		DirectURLLabel:  urlLabel(direct),
+		ProxiedURL:      proxied,
+		ProxiedURLLabel: urlLabel(proxied),
+		Quickstarts:     quickstarts(proxied),
+	}
+	access.URL, access.URLLabel = access.ProxiedURL, access.ProxiedURLLabel
+	if project.AccessMode == projectsvc.AccessModeDirect {
+		access.URL, access.URLLabel = access.DirectURL, access.DirectURLLabel
+	}
+	return access
+}
+
+func accessModeLabel(mode string) string {
+	if mode == projectsvc.AccessModeProxied {
+		return "Proxied"
+	}
+	return "Direct"
+}
+
+func quickstarts(proxied string) []pages.QuickstartItem {
+	base := proxied
+	if parsed, err := url.Parse(proxied); err == nil && parsed.Path != "" {
+		base = strings.TrimRight(parsed.Path, "/")
+	}
+	return []pages.QuickstartItem{
+		{Name: "React Router", Description: "Pass the project path as your router basename.", Snippet: `<BrowserRouter basename="` + base + `">`},
+		{Name: "Vite", Description: "Set the base so bundled assets resolve under the project path.", Snippet: "base: '" + base + "/'"},
+		{Name: "Next.js", Description: "Set basePath once for links and assets.", Snippet: "basePath: '" + base + "'"},
+		{Name: "Vue Router", Description: "Pass the project path to history mode.", Snippet: "createWebHistory('" + base + "/')"},
+		{Name: "Nuxt", Description: "Set baseURL for routing and assets.", Snippet: "app: { baseURL: '" + base + "/' }"},
+		{Name: "Angular", Description: "Set the document base for router and asset URLs.", Snippet: `<base href="` + base + `/">`},
+		{Name: "SvelteKit", Description: "Set the adapter base path.", Snippet: "paths: { base: '" + base + "' }"},
+		{Name: "Hash routing", Description: "Hash routes already work under a path prefix.", Snippet: "No configuration needed", NoConfig: true},
+	}
 }
 
 func (h *ProjectsHandler) assignedPorts(ctx context.Context, projectID string) []pages.PortItem {

@@ -13,10 +13,10 @@ import (
 const createProject = `-- name: CreateProject :one
 INSERT INTO projects (
     id, name, slug, description, directory, startup_command,
-    should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at
+    should_run, is_live, lifecycle_status, route_sync_status, access_mode, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at, access_mode
 `
 
 type CreateProjectParams struct {
@@ -30,6 +30,7 @@ type CreateProjectParams struct {
 	IsLive          int64  `json:"is_live"`
 	LifecycleStatus string `json:"lifecycle_status"`
 	RouteSyncStatus string `json:"route_sync_status"`
+	AccessMode      string `json:"access_mode"`
 	CreatedAt       string `json:"created_at"`
 	UpdatedAt       string `json:"updated_at"`
 }
@@ -46,6 +47,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		arg.IsLive,
 		arg.LifecycleStatus,
 		arg.RouteSyncStatus,
+		arg.AccessMode,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -63,6 +65,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.RouteSyncStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AccessMode,
 	)
 	return i, err
 }
@@ -77,7 +80,7 @@ func (q *Queries) DeleteProjectInterns(ctx context.Context, projectID string) er
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at FROM projects WHERE id = ?
+SELECT id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at, access_mode FROM projects WHERE id = ?
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id string) (Project, error) {
@@ -96,12 +99,13 @@ func (q *Queries) GetProjectByID(ctx context.Context, id string) (Project, error
 		&i.RouteSyncStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AccessMode,
 	)
 	return i, err
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at FROM projects WHERE slug = ?
+SELECT id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at, access_mode FROM projects WHERE slug = ?
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (Project, error) {
@@ -120,6 +124,7 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (Project, e
 		&i.RouteSyncStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AccessMode,
 	)
 	return i, err
 }
@@ -157,7 +162,7 @@ func (q *Queries) IsProjectMember(ctx context.Context, arg IsProjectMemberParams
 }
 
 const listInternProjects = `-- name: ListInternProjects :many
-SELECT p.id, p.name, p.slug, p.description, p.directory, p.startup_command, p.should_run, p.is_live, p.lifecycle_status, p.route_sync_status, p.created_at, p.updated_at
+SELECT p.id, p.name, p.slug, p.description, p.directory, p.startup_command, p.should_run, p.is_live, p.lifecycle_status, p.route_sync_status, p.created_at, p.updated_at, p.access_mode
 FROM projects p
 INNER JOIN project_interns pi ON pi.project_id = p.id
 WHERE pi.intern_id = ?
@@ -211,6 +216,7 @@ func (q *Queries) ListInternProjects(ctx context.Context, arg ListInternProjects
 			&i.RouteSyncStatus,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AccessMode,
 		); err != nil {
 			return nil, err
 		}
@@ -293,7 +299,7 @@ func (q *Queries) ListProjectInterns(ctx context.Context, projectID string) ([]I
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at FROM projects
+SELECT id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at, access_mode FROM projects
 WHERE (? = '' OR name LIKE '%' || ? || '%' OR slug LIKE '%' || ? || '%' OR description LIKE '%' || ? || '%')
   AND (? = '' OR lifecycle_status = ?)
   AND (? < 0 OR is_live = ?)
@@ -342,6 +348,7 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]P
 			&i.RouteSyncStatus,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AccessMode,
 		); err != nil {
 			return nil, err
 		}
@@ -362,9 +369,10 @@ SET name = ?,
     description = ?,
     should_run = ?,
     lifecycle_status = ?,
+    access_mode = ?,
     updated_at = ?
 WHERE id = ?
-RETURNING id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at
+RETURNING id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at, access_mode
 `
 
 type UpdateProjectParams struct {
@@ -372,6 +380,7 @@ type UpdateProjectParams struct {
 	Description     string `json:"description"`
 	ShouldRun       int64  `json:"should_run"`
 	LifecycleStatus string `json:"lifecycle_status"`
+	AccessMode      string `json:"access_mode"`
 	UpdatedAt       string `json:"updated_at"`
 	ID              string `json:"id"`
 }
@@ -382,6 +391,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		arg.Description,
 		arg.ShouldRun,
 		arg.LifecycleStatus,
+		arg.AccessMode,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -399,6 +409,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.RouteSyncStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AccessMode,
 	)
 	return i, err
 }

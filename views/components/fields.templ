@@ -4,6 +4,7 @@ package components
 // Alpine owns the visibility state; Go owns every other value.
 templ PasswordField(name string, autocomplete string, required bool) {
 	<div x-data="{ show: false }" class="relative">
+  <text x-show="show" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">Show</text>
 
 		<input
 			:type="show ? 'text' : 'password'"

@@ -1,9 +1,9 @@
 -- name: CreateProject :one
 INSERT INTO projects (
     id, name, slug, description, directory, startup_command,
-    should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at
+    should_run, is_live, lifecycle_status, route_sync_status, access_mode, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetProjectByID :one
@@ -25,6 +25,7 @@ SET name = ?,
     description = ?,
     should_run = ?,
     lifecycle_status = ?,
+    access_mode = ?,
     updated_at = ?
 WHERE id = ?
 RETURNING *;

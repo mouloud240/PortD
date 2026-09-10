@@ -10,7 +10,7 @@ Project hub for Algérie Télécom internships. Authenticated admins and interns
 ## What it does
 
 - **Project registry** — create, assign, and track projects with slugs, ports, and lifecycle state.
-- **Stable URLs** — `base_url/<project-slug>` proxies to the project's main port via Caddy.
+- **Two access modes** — Direct mode (`server:<main-port>`) needs no proxy or app changes; Proxied mode (`base_url/<project-slug>`) is available for apps configured for a path base.
 - **Startup recovery** — on launch, PortD runs `start.sh`/`start.bat` for projects marked `should_run` via a bounded worker pool.
 - **Port discovery** — maps listening host ports to registered projects and caches observations.
 - **Activity log** — every creation, lifecycle change, startup attempt, and route update is recorded.

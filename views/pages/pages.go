@@ -70,6 +70,12 @@ type ProjectListItem struct {
 	MainPort        string
 	URL             string
 	URLLabel        string
+	AccessMode      string
+	AccessLabel     string
+	DirectURL       string
+	DirectURLLabel  string
+	ProxiedURL      string
+	ProxiedURLLabel string
 	UpdatedAt       string
 }
 
@@ -96,6 +102,7 @@ type ProjectFormData struct {
 	PortError       string
 	IsLive          bool
 	IsNew           bool
+	AccessMode      string
 	Interns         []InternOption
 }
 
@@ -112,6 +119,25 @@ type HealthcheckItem struct {
 	ID       string
 	Endpoint string
 	Expected string
+}
+
+type QuickstartItem struct {
+	Name        string
+	Description string
+	Snippet     string
+	NoConfig    bool
+}
+
+type ProjectAccessData struct {
+	Mode            string
+	ModeLabel       string
+	URL             string
+	URLLabel        string
+	DirectURL       string
+	DirectURLLabel  string
+	ProxiedURL      string
+	ProxiedURLLabel string
+	Quickstarts     []QuickstartItem
 }
 
 // ProjectDetailData is the finished project detail page value.
@@ -142,6 +168,7 @@ type ProjectDetailData struct {
 	Healthchecks    []HealthcheckItem
 	HealthError     string
 	Archived        bool
+	Access          ProjectAccessData
 }
 
 // PortRow is one observed listening port, enriched for display.

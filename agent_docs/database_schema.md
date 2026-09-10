@@ -21,7 +21,7 @@ erDiagram
 | Table | Purpose | Key fields |
 | --- | --- | --- |
 | `interns` | Stores intern profiles. | `id`, required `full_name`, optional unique `email` and `identifier`, `active` |
-| `projects` | Stores project setup and runtime state. | Unique `slug`, `directory`, `startup_command`, run flags, lifecycle, route sync status, timestamps |
+| `projects` | Stores project setup, access mode, and runtime state. | Unique `slug`, `directory`, `startup_command`, `access_mode`, run flags, lifecycle, route sync status, timestamps |
 | `project_interns` | Links projects to one or more interns. | Composite key: `project_id`, `intern_id` |
 | `ports` | Reserves host ports for projects. | `port` is the global primary key. `role` is `main` or `internal` |
 | `port_observations` | Caches host port discovery results. | Port number, optional process data, optional matched project, `observed_at` |
@@ -55,6 +55,10 @@ port.
 `lifecycle_status` uses `draft`, `ready`, `running`, `stopped`, `failed`, or
 `archived`. `route_sync_status` uses `pending`, `synced`, `failed`, or
 `disabled`. The service must update these fields with `updated_at`.
+
+`access_mode` uses `direct` or `proxied` and defaults to `direct`. Direct mode
+uses the configured server host and the project's main port. Proxied mode uses
+the configured project path and may require application base-path setup.
 
 `should_run` means PortD should try to start the project after startup.
 `is_live` records the current runtime result. These flags are not a substitute

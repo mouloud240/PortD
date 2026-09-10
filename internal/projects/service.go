@@ -4,7 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"net"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -19,6 +23,11 @@ var (
 	ErrInvalid  = errors.New("invalid project data")
 	ErrConflict = errors.New("project already exists")
 	ErrNotFound = errors.New("project not found")
+)
+
+const (
+	AccessModeDirect  = "direct"
+	AccessModeProxied = "proxied"
 )
 
 var (
@@ -48,6 +57,24 @@ func (s *Service) ProjectURL(slug string) string {
 	return base + "/" + slug
 }
 
+// DirectProjectURL returns the project's URL on its assigned main port.
+func (s *Service) DirectProjectURL(port int64) (string, error) {
+	base, err := url.Parse(strings.TrimSpace(s.baseURL))
+	if err != nil || base.Scheme == "" || base.Hostname() == "" {
+		return "", fmt.Errorf("invalid base URL")
+	}
+	base.Path = ""
+	base.RawPath = ""
+	base.RawQuery = ""
+	base.Fragment = ""
+	base.Host = net.JoinHostPort(base.Hostname(), strconv.FormatInt(port, 10))
+	return strings.TrimRight(base.String(), "/") + "/", nil
+}
+
+func validAccessMode(mode string) bool {
+	return mode == AccessModeDirect || mode == AccessModeProxied
+}
+
 // ProjectWithInterns is a project row plus its assigned interns.
 type ProjectWithInterns struct {
 	Project db.Project
@@ -63,6 +90,7 @@ type CreateInput struct {
 	ShouldRun       bool
 	PortCount       int
 	CreatorInternID string
+	AccessMode      string
 }
 
 type UpdateInput struct {
@@ -71,6 +99,7 @@ type UpdateInput struct {
 	InternIDs       []string
 	LifecycleStatus string
 	ShouldRun       bool
+	AccessMode      string
 }
 
 func (s *Service) List(ctx context.Context, search, lifecycleStatus string, isLive int64) ([]ProjectWithInterns, error) {
@@ -223,6 +252,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if lifecycle == "" {
 		lifecycle = "draft"
 	}
+	accessMode := in.AccessMode
+	if accessMode == "" {
+		accessMode = AccessModeDirect
+	}
+	if !validAccessMode(accessMode) {
+		return ProjectWithInterns{}, ErrInvalid
+	}
 	internIDs := in.InternIDs
 	if in.CreatorInternID != "" {
 		creatorIncluded := false
@@ -271,6 +307,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 		IsLive:          0,
 		LifecycleStatus: lifecycle,
 		RouteSyncStatus: "pending",
+		AccessMode:      accessMode,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	})
@@ -304,6 +341,13 @@ func (s *Service) Update(ctx context.Context, slug string, in UpdateInput) (Proj
 	if err != nil {
 		return ProjectWithInterns{}, err
 	}
+	accessMode := in.AccessMode
+	if accessMode == "" {
+		accessMode = existing.AccessMode
+	}
+	if !validAccessMode(accessMode) {
+		return ProjectWithInterns{}, ErrInvalid
+	}
 
 	name := strings.TrimSpace(in.Name)
 	lifecycle := in.LifecycleStatus
@@ -335,6 +379,7 @@ func (s *Service) Update(ctx context.Context, slug string, in UpdateInput) (Proj
 		Description:     strings.TrimSpace(in.Description),
 		ShouldRun:       shouldRun,
 		LifecycleStatus: lifecycle,
+		AccessMode:      accessMode,
 		UpdatedAt:       now,
 		ID:              existing.ID,
 	})
@@ -368,6 +413,7 @@ func (s *Service) Archive(ctx context.Context, slug string) (ProjectWithInterns,
 		Description:     existing.Description,
 		ShouldRun:       0,
 		LifecycleStatus: "archived",
+		AccessMode:      existing.AccessMode,
 		UpdatedAt:       now,
 		ID:              existing.ID,
 	})

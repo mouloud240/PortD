@@ -322,6 +322,7 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 								<span class={ "state-pill " + item.LifecycleClass }>{ item.LifecycleLabel }</span>
 							</td>
 							<td>
+								<span class="badge neutral">{ item.AccessLabel }</span>
 								<a class="table-action" href={ item.URL } target="_blank" rel="noreferrer">{ item.URLLabel } ↗</a>
 							</td>
 							<td>
@@ -486,6 +487,56 @@ templ projectDetailBody(data ProjectDetailData) {
 			</dl>
 		</section>
 	</div>
+	<section class="panel detail-panel access-panel" x-data="{ copied: '' }">
+		<div class="panel-head">
+			<div>
+				<h2>Project access</h2>
+				<p>Choose the URL that matches how your application handles its base path.</p>
+			</div>
+			<span class="badge neutral">{ data.Access.ModeLabel }</span>
+		</div>
+		<div class="panel-body panel-body-padded">
+			<div class="access-options">
+				<div class="access-option" data-active?={ data.Access.Mode == "direct" }>
+					<div class="access-option-head"><strong>Direct</strong><span class="state-pill ready">No app changes</span></div>
+					<code class="hub-code access-url">{ data.Access.DirectURL }</code>
+					<p>Uses the server and main port directly. No Caddy, DNS, or base-path configuration is required.</p>
+					<a class="button secondary" href={ data.Access.DirectURL } target="_blank" rel="noreferrer">Open direct URL ↗</a>
+				</div>
+				<div class="access-option" data-active?={ data.Access.Mode == "proxied" }>
+					<div class="access-option-head"><strong>Proxied</strong><span class="state-pill ready">Path-based</span></div>
+					<code class="hub-code access-url">{ data.Access.ProxiedURL }</code>
+					<p>Uses the shared PortD URL. Configure your app's base path for in-app navigation and assets.</p>
+					<a class="button secondary" href={ data.Access.ProxiedURL } target="_blank" rel="noreferrer">Open proxied URL ↗</a>
+				</div>
+			</div>
+			<div class="quickstarts">
+				<div class="panel-head access-subhead">
+					<div><h3>Framework quickstarts</h3><p>Use the Proxied path below when your framework needs a base setting.</p></div>
+				</div>
+				<div class="quickstart-grid">
+					for _, item := range data.Access.Quickstarts {
+						<article class="quickstart">
+							<div class="quickstart-title">
+								<strong>{ item.Name }</strong>
+								if item.NoConfig {
+									<span class="state-pill ready">No config</span>
+								} else {
+									<span class="state-pill draft">Config</span>
+								}
+							</div>
+							<p>{ item.Description }</p>
+							<div class="quickstart-snippet">
+								<code>{ item.Snippet }</code>
+								<button class="table-action" type="button" @click="navigator.clipboard.writeText($el.previousElementSibling.textContent); copied = 'done'">Copy</button>
+							</div>
+						</article>
+					}
+				</div>
+			</div>
+			<p class="access-fallback"><strong>Navigation broken under Proxied?</strong> Use Direct mode from Edit, or open the direct URL above without changing your project.</p>
+		</div>
+	</section>
 	<section class="panel detail-panel">
 		<div class="panel-head">
 			<div>
@@ -712,6 +763,14 @@ templ projectFormBody(data ProjectFormData) {
 				<option value="failed" selected?={ data.LifecycleStatus == "failed" }>Failed</option>
 				<option value="archived" selected?={ data.LifecycleStatus == "archived" }>Archived</option>
 			</select>
+		</label>
+		<label class="block text-sm font-bold text-slate-700">
+			Access mode
+			<select name="access_mode" class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer">
+				<option value="direct" selected?={ data.AccessMode == "" || data.AccessMode == "direct" }>Direct — server and main port</option>
+				<option value="proxied" selected?={ data.AccessMode == "proxied" }>Proxied — shared project URL</option>
+			</select>
+			<span class="mt-1 block text-xs text-brand-muted">Direct is the compatibility-first default. Proxied may require a framework base path.</span>
 		</label>
 		if data.IsNew {
 			<label class="block text-sm font-bold text-slate-700">

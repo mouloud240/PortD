@@ -59,6 +59,7 @@ type Project struct {
 	RouteSyncStatus string `json:"route_sync_status"`
 	CreatedAt       string `json:"created_at"`
 	UpdatedAt       string `json:"updated_at"`
+	AccessMode      string `json:"access_mode"`
 }
 
 type ProjectHealthcheck struct {

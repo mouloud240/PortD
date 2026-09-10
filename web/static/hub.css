@@ -140,6 +140,112 @@
   padding: 20px 22px;
 }
 
+.access-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.access-option {
+  padding: 16px;
+  border: 1px solid #dbe3ed;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.access-option[data-active] {
+  border-color: #003da5;
+  background: #f4f8ff;
+}
+
+.access-option-head,
+.quickstart-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.access-url {
+  display: block;
+  margin: 12px 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.access-option p,
+.quickstart p,
+.access-fallback {
+  color: #536274;
+  font-size: 0.8125rem;
+}
+
+.access-option p {
+  min-height: 48px;
+  margin: 0 0 14px;
+}
+
+.access-subhead {
+  margin: 24px -22px 14px;
+  padding: 14px 0 0;
+  border-bottom: 0;
+}
+
+.access-subhead h3 {
+  margin: 0;
+  color: #172b4d;
+  font-size: 0.95rem;
+}
+
+.quickstart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.quickstart {
+  padding: 13px;
+  border: 1px solid #dbe3ed;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.quickstart p {
+  margin: 8px 0 10px;
+}
+
+.quickstart-snippet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dbe3ed;
+  border-radius: 6px;
+  background: #f5f8fb;
+}
+
+.quickstart-snippet code {
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  color: #182536;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.access-fallback {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #f0d9a6;
+  border-radius: 7px;
+  background: #fffaf0;
+}
+
+@media (max-width: 720px) {
+  .access-options {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Keep content spacing inside the panel, without double-padding its header. */
 .panel > .panel-body {
   padding: 20px 22px;

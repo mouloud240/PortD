@@ -26,7 +26,7 @@ func TestCreateListUpdateAssignsInterns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if created.Project.Slug != "demo-app" || created.Project.LifecycleStatus != "draft" {
+	if created.Project.Slug != "demo-app" || created.Project.LifecycleStatus != "draft" || created.Project.AccessMode != AccessModeDirect {
 		t.Fatalf("created = %+v", created.Project)
 	}
 	if len(created.Interns) != 2 {
@@ -60,6 +60,15 @@ func TestCreateListUpdateAssignsInterns(t *testing.T) {
 	}
 	if len(updated.Interns) != 1 || updated.Interns[0].ID != "i1" {
 		t.Fatalf("interns = %+v", updated.Interns)
+	}
+
+	updated, err = service.Update(context.Background(), "demo-app", UpdateInput{
+		Name:       "Demo App",
+		InternIDs:  []string{"i1"},
+		AccessMode: AccessModeProxied,
+	})
+	if err != nil || updated.Project.AccessMode != AccessModeProxied {
+		t.Fatalf("access mode update = %+v, err=%v", updated.Project, err)
 	}
 
 	archived, err := service.Archive(context.Background(), "demo-app")
@@ -105,6 +114,24 @@ func TestGetBySlugNotFound(t *testing.T) {
 	service, _ := testService(t)
 	if _, err := service.GetBySlug(context.Background(), "missing"); err != ErrNotFound {
 		t.Fatalf("error = %v, want %v", err, ErrNotFound)
+	}
+}
+
+func TestDirectProjectURL(t *testing.T) {
+	svc := NewService(nil, nil, "http://10.243.1.20:8080/portd")
+	for _, test := range []struct {
+		port int64
+		want string
+	}{
+		{7331, "http://10.243.1.20:7331/"},
+	} {
+		got, err := svc.DirectProjectURL(test.port)
+		if err != nil {
+			t.Fatalf("DirectProjectURL: %v", err)
+		}
+		if got != test.want {
+			t.Fatalf("DirectProjectURL = %q, want %q", got, test.want)
+		}
 	}
 }
 
@@ -196,7 +223,7 @@ func testService(t *testing.T) (*Service, *db.Queries) {
 	if _, err := database.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"000001_initial_schema.up.sql", "000002_add_routes.up.sql", "000003_add_local_auth.up.sql", "000004_add_healthchecks.up.sql"} {
+	for _, name := range []string{"000001_initial_schema.up.sql", "000002_add_routes.up.sql", "000003_add_local_auth.up.sql", "000004_add_healthchecks.up.sql", "000005_add_access_mode.up.sql"} {
 		schema, err := os.ReadFile(filepath.Join("..", "db", "migrations", name))
 		if err != nil {
 			t.Fatal(err)
