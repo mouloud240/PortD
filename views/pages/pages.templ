@@ -22,7 +22,8 @@ templ dashboardBody(data DashboardData) {
 	<div class="stat-grid">
 		<article><span>Active projects</span><strong>{ strconv.Itoa(data.ActiveProjects) }</strong><small>Non-archived</small></article>
 		<article><span>Running services</span><strong>{ strconv.Itoa(data.LiveServices) }<em>/{ strconv.Itoa(data.TotalServices) }</em></strong><small>Reachability snapshot</small></article>
-		<article><span>Used ports</span><strong>{ strconv.Itoa(data.AssignedPorts) }</strong>
+		<article>
+			<span>Used ports</span><strong>{ strconv.Itoa(data.AssignedPorts) }</strong>
 			if data.UnknownPorts > 0 {
 				<small class="warning">{ strconv.Itoa(data.UnknownPorts) } unknown</small>
 			} else {
@@ -31,6 +32,28 @@ templ dashboardBody(data DashboardData) {
 		</article>
 		<article><span>Active interns</span><strong>{ strconv.Itoa(data.ActiveInterns) }</strong><small>Current placements</small></article>
 	</div>
+	<section class="panel">
+		<div class="panel-head">
+			<div>
+				<h2>Projects by lifecycle</h2>
+				<p>Active projects per stage, excluding archived.</p>
+			</div>
+			<a class="table-action" href="/projects">View all</a>
+		</div>
+		<div class="panel-body panel-body-padded">
+			<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;">
+				for _, bar := range data.Lifecycle {
+					<li style="display:flex;align-items:center;gap:12px;">
+						<span class={ "state-pill " + bar.Class } style="min-width:88px;">{ bar.Label }</span>
+						<span style="flex:1;height:10px;border-radius:999px;background:#eef2f6;overflow:hidden;" role="presentation">
+							<span style={ "display:block;height:100%;border-radius:999px;background:" + bar.Color + ";width:" + strconv.Itoa(bar.Percent) + "%;" }></span>
+						</span>
+						<strong style="min-width:24px;text-align:right;">{ strconv.Itoa(bar.Count) }</strong>
+					</li>
+				}
+			</ul>
+		</div>
+	</section>
 	<div class="two-column">
 		<section class="panel">
 			<div class="panel-head">
@@ -79,9 +102,15 @@ templ dashboardBody(data DashboardData) {
 			</div>
 			<ol>
 				for _, item := range data.Recent {
-					<li class={ activityLiClass(item.Failed) }><time>{ item.Time }</time><span><b>{ item.EventLabel }</b> { item.Entity }if item.Detail != "" {
+					<li class={ activityLiClass(item.Failed) }>
+						<time>{ item.Time }</time>
+						<span>
+							<b>{ item.EventLabel }</b> { item.Entity }
+							if item.Detail != "" {
 								{ " — " + item.Detail }
-							}</span></li>
+							}
+						</span>
+					</li>
 				}
 				if len(data.Recent) == 0 {
 					<li><span>No activity recorded yet.</span></li>
@@ -197,7 +226,7 @@ templ placeholderBody(title string) {
 }
 
 templ LoginPage(errorMessage string) {
-	<!doctype html>
+	<!DOCTYPE html>
 	<html lang="en" class="h-full bg-brand-ground">
 		<head>
 			<meta charset="utf-8"/>
@@ -374,7 +403,12 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 			<h1>Projects</h1>
 			<p>Search the central registry and open an available internal URL.</p>
 		</div>
-		<a class="button primary" href="/projects/new">+ Add project</a>
+		<div>
+			<form method="post" action="/projects/detect">
+				<button class="button secondary" type="submit">Detect from disk</button>
+			</form>
+			<a class="button primary" href="/projects/new">+ Add project</a>
+		</div>
 	</div>
 	<section class="panel">
 		<form class="toolbar" method="get" x-target="project-table">
@@ -417,6 +451,9 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 							<td>{ item.Interns }</td>
 							<td>
 								<span class={ "badge " + item.StatusClass }>{ item.StatusLabel }</span>
+								if item.MissingStartup {
+									<span class="badge warning">No startup file</span>
+								}
 							</td>
 							<td>
 								<code class="hub-code">{ item.MainPort }</code>
@@ -465,12 +502,12 @@ templ portsBody(data PortsPageData) {
 				<p>Visibility only. PortD does not resolve conflicts automatically.</p>
 			</div>
 			<div class="ports-scan-meta">
-			if data.CheckedAt != "" {
-				<span>Last checked <strong>{ data.CheckedAt }</strong></span>
-			}
-			if data.Unknown > 0 {
-				<span class="badge warning">{ data.Unknown } unregistered</span>
-			}
+				if data.CheckedAt != "" {
+					<span>Last checked <strong>{ data.CheckedAt }</strong></span>
+				}
+				if data.Unknown > 0 {
+					<span class="badge warning">{ data.Unknown } unregistered</span>
+				}
 			</div>
 		</div>
 		<div class="panel-body table-wrap">
@@ -529,348 +566,351 @@ templ ProjectDetailPage(data ProjectDetailData) {
 
 templ projectDetailBody(data ProjectDetailData) {
 	<div class="project-detail">
-	<a class="breadcrumb" href="/projects">Projects / <span>{ data.Name }</span></a>
-	<div class="project-hero">
-		<div>
-			<div class="title-row">
-				<h1>{ data.Name }</h1>
-				<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
-				<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
+		<a class="breadcrumb" href="/projects">Projects / <span>{ data.Name }</span></a>
+		<div class="project-hero">
+			<div>
+				<div class="title-row">
+					<h1>{ data.Name }</h1>
+					<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
+					<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
+				</div>
+				<a href={ data.URL } target="_blank" rel="noreferrer">{ data.URLLabel } ↗</a>
+				<p class="project-hero-meta">Owned by { data.Owners } · Main port <code class="hub-code">{ data.MainPort }</code></p>
+				if data.Description != "" {
+					<p>{ data.Description }</p>
+				}
 			</div>
-			<a href={ data.URL } target="_blank" rel="noreferrer">{ data.URLLabel } ↗</a>
-			<p class="project-hero-meta">Owned by { data.Owners } · Main port <code class="hub-code">{ data.MainPort }</code></p>
-			if data.Description != "" {
-				<p>{ data.Description }</p>
-			}
+			<div class="project-hero-actions">
+				<a class="button secondary" href={ "/projects/" + data.Slug + "/edit" }>Edit</a>
+				<a class="button primary" href={ data.URL } target="_blank" rel="noreferrer">Open project ↗</a>
+			</div>
 		</div>
-		<div class="project-hero-actions">
-			<a class="button secondary" href={ "/projects/" + data.Slug + "/edit" }>Edit</a>
-			<a class="button primary" href={ data.URL } target="_blank" rel="noreferrer">Open project ↗</a>
+		<div class="detail-grid">
+			<section class="panel detail-panel">
+				<div class="panel-head"><h2>Project details</h2></div>
+				<dl class="hub-dl">
+					<div>
+						<dt>Owner</dt>
+						<dd>{ data.Owners }</dd>
+					</div>
+					<div>
+						<dt>Created</dt>
+						<dd>{ data.CreatedAt }</dd>
+					</div>
+					<div>
+						<dt>Last updated</dt>
+						<dd>{ data.UpdatedAt }</dd>
+					</div>
+				</dl>
+			</section>
+			<section class="panel detail-panel">
+				<div class="panel-head">
+					<div>
+						<h2>Runtime</h2>
+						<p>Start or stop the project using its platform startup file.</p>
+					</div>
+					<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
+				</div>
+				<div class="panel-body panel-body-padded runtime-control">
+					if data.RuntimeError != "" {
+						<div class="runtime-alert" role="alert">{ data.RuntimeError }</div>
+					}
+					<div class="runtime-control-row">
+						<div>
+							<strong>{ data.RuntimeState }</strong>
+							if data.RuntimePID != "0" {
+								<p>Process <code class="hub-code">#{ data.RuntimePID }</code> is managed by PortD.</p>
+							} else {
+								<p>No managed process is running.</p>
+							}
+						</div>
+						if data.RuntimeState == "running" || data.RuntimeState == "stopping" {
+							<form method="post" action={ "/projects/" + data.Slug + "/runtime/stop" } x-data="{ busy: false }" @submit="busy = true">
+								<button class="button danger" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'stopping'">
+									<span x-show="!busy">Stop project</span><span x-show="busy" x-cloak>Stopping…</span>
+								</button>
+							</form>
+						} else {
+							<form method="post" action={ "/projects/" + data.Slug + "/runtime/start" } x-data="{ busy: false }" @submit="busy = true">
+								<button class="button primary" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'starting'">
+									<span x-show="!busy">Start project</span><span x-show="busy" x-cloak>Starting…</span>
+								</button>
+							</form>
+						}
+					</div>
+					<div class="runtime-file">
+						<span>Execution file</span>
+						<code class="hub-code">{ data.RuntimeFile }</code>
+						if data.MissingStartup {
+							<span class="badge warning">No start.sh or start.bat in the project directory</span>
+						}
+						<form class="runtime-configure" method="post" action={ "/projects/" + data.Slug + "/runtime/configure" }>
+							<label class="sr-only" for="startup-command">Startup file path</label>
+							<input id="startup-command" name="startup_command" value={ data.RuntimeFile } placeholder="start.sh or start.bat" autocomplete="off"/>
+							<button class="button secondary" type="submit">Save file</button>
+						</form>
+						if data.RuntimeState == "failed" {
+							<p class="runtime-error">The process exited unexpectedly. Check the file and project logs before trying again.</p>
+						}
+					</div>
+				</div>
+				<dl class="hub-dl four-up">
+					<div>
+						<dt>Main port</dt>
+						<dd><code class="hub-code">{ data.MainPort }</code></dd>
+					</div>
+					<div>
+						<dt>Status</dt>
+						<dd><span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span></dd>
+					</div>
+					<div>
+						<dt>Observed</dt>
+						<dd>
+							if data.IsLive {
+								<span class="badge running">Live</span>
+							} else {
+								<span class="badge neutral">Not live</span>
+							}
+						</dd>
+					</div>
+				</dl>
+			</section>
 		</div>
-	</div>
-	<div class="detail-grid">
-		<section class="panel detail-panel">
-			<div class="panel-head"><h2>Project details</h2></div>
-			<dl class="hub-dl">
+		<section class="panel detail-panel access-panel" x-data="{ selectedFramework: '', copied: false }">
+			<div class="panel-head">
 				<div>
-					<dt>Owner</dt>
-					<dd>{ data.Owners }</dd>
+					<h2>Project access</h2>
+					<p>Choose the URL that matches how your application handles its base path.</p>
 				</div>
-				<div>
-					<dt>Created</dt>
-					<dd>{ data.CreatedAt }</dd>
+				<span class="badge neutral">{ data.Access.ModeLabel }</span>
+			</div>
+			<div class="panel-body panel-body-padded">
+				<div class="access-options">
+					<div class="access-option" data-active?={ data.Access.Mode == "direct" }>
+						<div class="access-option-head"><strong>Direct</strong><span class="state-pill ready">No app changes</span></div>
+						<code class="hub-code access-url">{ data.Access.DirectURL }</code>
+						<p>Uses the server and main port directly. No Caddy, DNS, or base-path configuration is required.</p>
+						<a class="button secondary" href={ data.Access.DirectURL } target="_blank" rel="noreferrer">Open direct URL ↗</a>
+					</div>
+					<div class="access-option" data-active?={ data.Access.Mode == "proxied" }>
+						<div class="access-option-head"><strong>Proxied</strong><span class="state-pill ready">Path-based</span></div>
+						<code class="hub-code access-url">{ data.Access.ProxiedURL }</code>
+						<p>Uses the shared PortD URL. Configure your app's base path for in-app navigation and assets.</p>
+						<a class="button secondary" href={ data.Access.ProxiedURL } target="_blank" rel="noreferrer">Open proxied URL ↗</a>
+					</div>
 				</div>
-				<div>
-					<dt>Last updated</dt>
-					<dd>{ data.UpdatedAt }</dd>
+				<div class="quickstarts">
+					<div class="panel-head access-subhead">
+						<div><h3>Framework quickstarts</h3><p>Select your framework to see the one-line setup.</p></div>
+					</div>
+					<div class="quickstart-grid">
+						for _, item := range data.Access.Quickstarts {
+							<button class="quickstart" type="button" :class={ "selectedFramework === '" + item.Key + "' ? 'is-selected' : ''" } @click={ "selectedFramework = '" + item.Key + "'" }>
+								<div class="quickstart-title">
+									<strong>{ item.Name }</strong>
+									if item.NoConfig {
+										<span class="state-pill ready">No config</span>
+									} else {
+										<span class="state-pill draft">Config</span>
+									}
+								</div>
+								<p>{ item.Description }</p>
+								<span class="quickstart-action">View setup →</span>
+							</button>
+						}
+					</div>
 				</div>
-			</dl>
+				<div class="quickstart-instructions" x-cloak x-show="selectedFramework !== ''">
+					for _, item := range data.Access.Quickstarts {
+						<div class="quickstart-instruction" x-show={ "selectedFramework === '" + item.Key + "'" }>
+							<div class="quickstart-instruction-head">
+								<div><strong>{ item.Name }</strong><p>{ item.Description }</p><span class="quickstart-file">Edit <code>{ item.File }</code></span></div>
+								<button class="table-action" type="button" @click="navigator.clipboard.writeText($el.closest('.quickstart-instruction').querySelector('.quickstart-code').textContent); copied = true">Copy setup</button>
+							</div>
+							<pre class="quickstart-code"><code>{ item.Snippet }</code></pre>
+						</div>
+					}
+				</div>
+				<div class="ai-help">
+					<div>
+						<strong>Not sure what to do?</strong>
+						<p>Paste this prompt into your AI coding agent and it will guide you through the smallest framework-specific change.</p>
+					</div>
+					<textarea class="ai-prompt" readonly x-ref="aiPrompt">{ data.Access.AIPrompt }</textarea>
+					<button class="button secondary" type="button" @click="navigator.clipboard.writeText($refs.aiPrompt.value); copied = true">Copy prompt</button>
+				</div>
+				<p class="access-fallback"><strong>Navigation broken under Proxied?</strong> Use Direct mode from Edit, or open the direct URL above without changing your project.</p>
+			</div>
 		</section>
 		<section class="panel detail-panel">
 			<div class="panel-head">
 				<div>
-					<h2>Runtime</h2>
-					<p>Start or stop the project using its platform startup file.</p>
+					<h2>Ports</h2>
+					<p>Only the main port gets a public link. Allocate or release on the <a class="table-action" href={ "/projects/" + data.Slug + "/edit" }>Edit page</a>.</p>
 				</div>
-				<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
 			</div>
-			<div class="panel-body panel-body-padded runtime-control">
-				if data.RuntimeError != "" {
-					<div class="runtime-alert" role="alert">{ data.RuntimeError }</div>
-				}
-				<div class="runtime-control-row">
-					<div>
-						<strong>{ data.RuntimeState }</strong>
-						if data.RuntimePID != "0" {
-							<p>Process <code class="hub-code">#{ data.RuntimePID }</code> is managed by PortD.</p>
-						} else {
-							<p>No managed process is running.</p>
-						}
+			<div class="panel-body panel-body-padded">
+				if data.PortError != "" {
+					<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+						{ data.PortError }
 					</div>
-					if data.RuntimeState == "running" || data.RuntimeState == "stopping" {
-						<form method="post" action={ "/projects/" + data.Slug + "/runtime/stop" } x-data="{ busy: false }" @submit="busy = true">
-							<button class="button danger" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'stopping'">
-								<span x-show="!busy">Stop project</span><span x-show="busy" x-cloak>Stopping…</span>
-							</button>
-						</form>
-					} else {
-						<form method="post" action={ "/projects/" + data.Slug + "/runtime/start" } x-data="{ busy: false }" @submit="busy = true">
-							<button class="button primary" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'starting'">
-								<span x-show="!busy">Start project</span><span x-show="busy" x-cloak>Starting…</span>
-							</button>
-						</form>
-					}
-				</div>
-				<div class="runtime-file">
-					<span>Execution file</span>
-					<code class="hub-code">{ data.RuntimeFile }</code>
-					<form class="runtime-configure" method="post" action={ "/projects/" + data.Slug + "/runtime/configure" }>
-						<label class="sr-only" for="startup-command">Startup file path</label>
-						<input id="startup-command" name="startup_command" value={ data.RuntimeFile } placeholder="start.sh or start.bat" autocomplete="off"/>
-						<button class="button secondary" type="submit">Save file</button>
-					</form>
-					if data.RuntimeState == "failed" {
-						<p class="runtime-error">The process exited unexpectedly. Check the file and project logs before trying again.</p>
-					}
+				}
+				if len(data.AllocatedPorts) == 0 {
+					<p class="text-sm text-brand-muted">No ports assigned yet.</p>
+				} else {
+					<ul class="flex flex-col gap-2">
+						for _, port := range data.AllocatedPorts {
+							<li class="flex flex-wrap items-center gap-2">
+								<code class="hub-code">{ port.Port }</code>
+								if port.IsMain {
+									<span class="port main">main</span>
+								} else {
+									<span class="port">internal</span>
+									<form method="post" action={ "/projects/" + data.Slug + "/ports/promote" }>
+										<input type="hidden" name="port" value={ port.Port }/>
+										<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+										<button class="table-action" type="submit">Make main</button>
+									</form>
+								}
+								if port.Live {
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
+										<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
+										Live
+									</span>
+								}
+							</li>
+						}
+					</ul>
+				}
+			</div>
+		</section>
+		<section class="panel detail-panel">
+			<div class="panel-head">
+				<div>
+					<h2>Healthchecks</h2>
+					<p>Endpoints the checker will probe. Stored only for now.</p>
 				</div>
 			</div>
-			<dl class="hub-dl four-up">
-				<div>
-					<dt>Main port</dt>
-					<dd><code class="hub-code">{ data.MainPort }</code></dd>
-				</div>
-				<div>
-					<dt>Status</dt>
-					<dd><span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span></dd>
-				</div>
-				<div>
-					<dt>Observed</dt>
-					<dd>
-						if data.IsLive {
-							<span class="badge running">Live</span>
-						} else {
-							<span class="badge neutral">Not live</span>
+			<div class="panel-body panel-body-padded">
+				if data.HealthError != "" {
+					<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+						{ data.HealthError }
+					</div>
+				}
+				if len(data.Healthchecks) == 0 {
+					<p class="text-sm text-brand-muted mb-4">No endpoints yet.</p>
+				} else {
+					<ul class="flex flex-col gap-2 mb-4">
+						for _, check := range data.Healthchecks {
+							<li class="flex flex-wrap items-center gap-2">
+								<code class="hub-code">{ check.Endpoint }</code>
+								<span class="port">→ { check.Expected }</span>
+								<form method="post" action={ "/projects/" + data.Slug + "/healthchecks/" + check.ID + "/delete" }>
+									<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+									<button class="table-action" type="submit">Remove</button>
+								</form>
+							</li>
 						}
-					</dd>
+					</ul>
+				}
+				<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/healthchecks" }>
+					<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+					<label class="block text-sm font-bold text-slate-700">
+						Endpoint
+						<input class="mt-1 block w-64 max-w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="endpoint" maxlength="2048" placeholder="/health"/>
+					</label>
+					<label class="block text-sm font-bold text-slate-700">
+						Expect
+						<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal" name="expected_status" type="number" min="200" max="599" placeholder="200"/>
+					</label>
+					<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Add</button>
+				</form>
+			</div>
+		</section>
+		<section class="panel detail-panel tracking-panel">
+			<div class="panel-head"><h2>Project tracking</h2></div>
+			<div class="tracking-card-body">
+				<div class="tracking-topline">
+					<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
+					<strong>{ data.LifecyclePhase }</strong>
+				</div>
+				<div class="tracking-meta">
+					<div>
+						<span>Last update</span>
+						<strong>{ data.UpdatedAt }</strong>
+					</div>
+					<div>
+						<span>Runtime intent</span>
+						<strong>{ data.RuntimeIntent }</strong>
+					</div>
+				</div>
+			</div>
+		</section>
+		<section class="panel detail-panel">
+			<div class="panel-head"><h2>How to run this project</h2></div>
+			<div class="panel-body panel-body-padded">
+				<ol class="flex flex-col gap-4 list-decimal ml-5 marker:font-bold marker:text-brand-navy">
+					<li>
+						<strong>Work in your folder.</strong>
+						<span class="text-brand-muted">All files live in <code class="hub-code">{ data.Directory }</code>.</span>
+					</li>
+					<li>
+						<strong>Bind your main port.</strong>
+						if data.MainPort != "—" {
+							<span class="text-brand-muted">Listen on <code class="hub-code">localhost:{ data.MainPort }</code>. Assigned ports only — never take another project's.</span>
+						} else {
+							<span class="text-brand-muted">Listen on your main port (see Ports above). Assigned ports only — never take another project's.</span>
+						}
+					</li>
+					<li>
+						<strong>Start it.</strong>
+						<span class="text-brand-muted">Run <code class="hub-code">{ data.StartupCommand }</code>. Toggle Should run on the Edit page to stop or restart.</span>
+					</li>
+					<li>
+						<strong>Read the README first.</strong>
+						<span class="text-brand-muted">It lists your ports and URL.</span>
+					</li>
+				</ol>
+			</div>
+		</section>
+		<section class="panel detail-panel" x-data="{ confirmArchive: false }">
+			<div class="panel-head"><h2>Project setup</h2></div>
+			<dl class="hub-dl setup">
+				<div>
+					<dt>Directory</dt>
+					<dd><code class="hub-code">{ data.Directory }</code></dd>
+				</div>
+				<div>
+					<dt>Entry point</dt>
+					<dd><code class="hub-code">{ data.StartupCommand }</code></dd>
 				</div>
 			</dl>
-		</section>
-	</div>
-	<section class="panel detail-panel access-panel" x-data="{ selectedFramework: '', copied: false }">
-		<div class="panel-head">
-			<div>
-				<h2>Project access</h2>
-				<p>Choose the URL that matches how your application handles its base path.</p>
-			</div>
-			<span class="badge neutral">{ data.Access.ModeLabel }</span>
-		</div>
-		<div class="panel-body panel-body-padded">
-			<div class="access-options">
-				<div class="access-option" data-active?={ data.Access.Mode == "direct" }>
-					<div class="access-option-head"><strong>Direct</strong><span class="state-pill ready">No app changes</span></div>
-					<code class="hub-code access-url">{ data.Access.DirectURL }</code>
-					<p>Uses the server and main port directly. No Caddy, DNS, or base-path configuration is required.</p>
-					<a class="button secondary" href={ data.Access.DirectURL } target="_blank" rel="noreferrer">Open direct URL ↗</a>
-				</div>
-				<div class="access-option" data-active?={ data.Access.Mode == "proxied" }>
-					<div class="access-option-head"><strong>Proxied</strong><span class="state-pill ready">Path-based</span></div>
-					<code class="hub-code access-url">{ data.Access.ProxiedURL }</code>
-					<p>Uses the shared PortD URL. Configure your app's base path for in-app navigation and assets.</p>
-					<a class="button secondary" href={ data.Access.ProxiedURL } target="_blank" rel="noreferrer">Open proxied URL ↗</a>
-				</div>
-			</div>
-			<div class="quickstarts">
-				<div class="panel-head access-subhead">
-					<div><h3>Framework quickstarts</h3><p>Select your framework to see the one-line setup.</p></div>
-				</div>
-				<div class="quickstart-grid">
-					for _, item := range data.Access.Quickstarts {
-						<button class="quickstart" type="button" :class={ "selectedFramework === '" + item.Key + "' ? 'is-selected' : ''" } @click={ "selectedFramework = '" + item.Key + "'" }>
-							<div class="quickstart-title">
-								<strong>{ item.Name }</strong>
-								if item.NoConfig {
-									<span class="state-pill ready">No config</span>
-								} else {
-									<span class="state-pill draft">Config</span>
-								}
-							</div>
-							<p>{ item.Description }</p>
-							<span class="quickstart-action">View setup →</span>
-						</button>
-					}
-				</div>
-			</div>
-			<div class="quickstart-instructions" x-cloak x-show="selectedFramework !== ''">
-				for _, item := range data.Access.Quickstarts {
-					<div class="quickstart-instruction" x-show={ "selectedFramework === '" + item.Key + "'" }>
-						<div class="quickstart-instruction-head">
-						<div><strong>{ item.Name }</strong><p>{ item.Description }</p><span class="quickstart-file">Edit <code>{ item.File }</code></span></div>
-							<button class="table-action" type="button" @click="navigator.clipboard.writeText($el.closest('.quickstart-instruction').querySelector('.quickstart-code').textContent); copied = true">Copy setup</button>
-						</div>
-						<pre class="quickstart-code"><code>{ item.Snippet }</code></pre>
+			if !data.Archived {
+				<div class="archive">
+					<div class="archive-label">
+						<h3>Archive project</h3>
+						<p>This hides the project from active discovery and frees its assigned ports to the shared pool.</p>
 					</div>
-				}
-			</div>
-			<div class="ai-help">
-				<div>
-					<strong>Not sure what to do?</strong>
-					<p>Paste this prompt into your AI coding agent and it will guide you through the smallest framework-specific change.</p>
+					<button class="link-danger" type="button" @click="confirmArchive = true" x-show="!confirmArchive">Archive</button>
 				</div>
-				<textarea class="ai-prompt" readonly x-ref="aiPrompt">{ data.Access.AIPrompt }</textarea>
-				<button class="button secondary" type="button" @click="navigator.clipboard.writeText($refs.aiPrompt.value); copied = true">Copy prompt</button>
-			</div>
-			<p class="access-fallback"><strong>Navigation broken under Proxied?</strong> Use Direct mode from Edit, or open the direct URL above without changing your project.</p>
-		</div>
-	</section>
-	<section class="panel detail-panel">
-		<div class="panel-head">
-			<div>
-				<h2>Ports</h2>
-				<p>Only the main port gets a public link. Allocate or release on the <a class="table-action" href={ "/projects/" + data.Slug + "/edit" }>Edit page</a>.</p>
-			</div>
-		</div>
-		<div class="panel-body panel-body-padded">
-			if data.PortError != "" {
-				<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
-					{ data.PortError }
+				<div class="archive-confirm" x-show="confirmArchive" x-cloak>
+					<p>This action hides the project and frees its ports. Lifecycle can be changed later from Edit.</p>
+					<div class="archive-confirm-actions">
+						<button class="button secondary" type="button" @click="confirmArchive = false">Cancel</button>
+						<form method="post" action={ "/projects/" + data.Slug + "/archive" }>
+							<button class="button danger" type="submit">Confirm archive</button>
+						</form>
+					</div>
 				</div>
-			}
-			if len(data.AllocatedPorts) == 0 {
-				<p class="text-sm text-brand-muted">No ports assigned yet.</p>
 			} else {
-				<ul class="flex flex-col gap-2">
-					for _, port := range data.AllocatedPorts {
-						<li class="flex flex-wrap items-center gap-2">
-							<code class="hub-code">{ port.Port }</code>
-							if port.IsMain {
-								<span class="port main">main</span>
-							} else {
-								<span class="port">internal</span>
-								<form method="post" action={ "/projects/" + data.Slug + "/ports/promote" }>
-									<input type="hidden" name="port" value={ port.Port }/>
-									<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
-									<button class="table-action" type="submit">Make main</button>
-								</form>
-							}
-							if port.Live {
-								<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
-									<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-									Live
-								</span>
-							}
-						</li>
-					}
-				</ul>
-			}
-		</div>
-	</section>
-	<section class="panel detail-panel">
-		<div class="panel-head">
-			<div>
-				<h2>Healthchecks</h2>
-				<p>Endpoints the checker will probe. Stored only for now.</p>
-			</div>
-		</div>
-		<div class="panel-body panel-body-padded">
-			if data.HealthError != "" {
-				<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
-					{ data.HealthError }
+				<div class="archive">
+					<div class="archive-label">
+						<h3>Archived</h3>
+						<p>This project is archived.</p>
+					</div>
 				</div>
 			}
-			if len(data.Healthchecks) == 0 {
-				<p class="text-sm text-brand-muted mb-4">No endpoints yet.</p>
-			} else {
-				<ul class="flex flex-col gap-2 mb-4">
-					for _, check := range data.Healthchecks {
-						<li class="flex flex-wrap items-center gap-2">
-							<code class="hub-code">{ check.Endpoint }</code>
-							<span class="port">→ { check.Expected }</span>
-							<form method="post" action={ "/projects/" + data.Slug + "/healthchecks/" + check.ID + "/delete" }>
-								<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
-								<button class="table-action" type="submit">Remove</button>
-							</form>
-						</li>
-					}
-				</ul>
-			}
-			<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/healthchecks" }>
-				<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
-				<label class="block text-sm font-bold text-slate-700">
-					Endpoint
-					<input class="mt-1 block w-64 max-w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="endpoint" maxlength="2048" placeholder="/health"/>
-				</label>
-				<label class="block text-sm font-bold text-slate-700">
-					Expect
-					<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal" name="expected_status" type="number" min="200" max="599" placeholder="200"/>
-				</label>
-				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Add</button>
-			</form>
-		</div>
-	</section>
-	<section class="panel detail-panel tracking-panel">
-		<div class="panel-head"><h2>Project tracking</h2></div>
-		<div class="tracking-card-body">
-			<div class="tracking-topline">
-				<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
-				<strong>{ data.LifecyclePhase }</strong>
-			</div>
-			<div class="tracking-meta">
-				<div>
-					<span>Last update</span>
-					<strong>{ data.UpdatedAt }</strong>
-				</div>
-				<div>
-					<span>Runtime intent</span>
-					<strong>{ data.RuntimeIntent }</strong>
-				</div>
-			</div>
-		</div>
-	</section>
-	<section class="panel detail-panel">
-		<div class="panel-head"><h2>How to run this project</h2></div>
-		<div class="panel-body panel-body-padded">
-			<ol class="flex flex-col gap-4 list-decimal ml-5 marker:font-bold marker:text-brand-navy">
-				<li>
-					<strong>Work in your folder.</strong>
-					<span class="text-brand-muted">All files live in <code class="hub-code">{ data.Directory }</code>.</span>
-				</li>
-				<li>
-					<strong>Bind your main port.</strong>
-					if data.MainPort != "—" {
-						<span class="text-brand-muted">Listen on <code class="hub-code">localhost:{ data.MainPort }</code>. Assigned ports only — never take another project's.</span>
-					} else {
-						<span class="text-brand-muted">Listen on your main port (see Ports above). Assigned ports only — never take another project's.</span>
-					}
-				</li>
-				<li>
-					<strong>Start it.</strong>
-					<span class="text-brand-muted">Run <code class="hub-code">{ data.StartupCommand }</code>. Toggle Should run on the Edit page to stop or restart.</span>
-				</li>
-				<li>
-					<strong>Read the README first.</strong>
-					<span class="text-brand-muted">It lists your ports and URL.</span>
-				</li>
-			</ol>
-		</div>
-	</section>
-	<section class="panel detail-panel" x-data="{ confirmArchive: false }">
-		<div class="panel-head"><h2>Project setup</h2></div>
-		<dl class="hub-dl setup">
-			<div>
-				<dt>Directory</dt>
-				<dd><code class="hub-code">{ data.Directory }</code></dd>
-			</div>
-			<div>
-				<dt>Entry point</dt>
-				<dd><code class="hub-code">{ data.StartupCommand }</code></dd>
-			</div>
-		</dl>
-		if !data.Archived {
-			<div class="archive">
-				<div class="archive-label">
-					<h3>Archive project</h3>
-					<p>This hides the project from active discovery and frees its assigned ports to the shared pool.</p>
-				</div>
-				<button class="link-danger" type="button" @click="confirmArchive = true" x-show="!confirmArchive">Archive</button>
-			</div>
-			<div class="archive-confirm" x-show="confirmArchive" x-cloak>
-				<p>This action hides the project and frees its ports. Lifecycle can be changed later from Edit.</p>
-				<div class="archive-confirm-actions">
-					<button class="button secondary" type="button" @click="confirmArchive = false">Cancel</button>
-					<form method="post" action={ "/projects/" + data.Slug + "/archive" }>
-						<button class="button danger" type="submit">Confirm archive</button>
-					</form>
-				</div>
-			</div>
-		} else {
-			<div class="archive">
-				<div class="archive-label">
-					<h3>Archived</h3>
-					<p>This project is archived.</p>
-				</div>
-			</div>
-		}
-	</section>
+		</section>
 	</div>
 }
 
@@ -1073,20 +1113,20 @@ templ internFormBody(data InternFormData) {
 				@components.PasswordField("password", "new-password", true)
 			</label>
 			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
-	} else {
-		<div class="flex flex-wrap items-center gap-3">
-			<input type="hidden" name="active" :value="active ? 'true' : 'false'"/>
-			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
-			<button
-				type="button"
-				@click="active = !active"
-				:class="active ? 'bg-red-50 hover:bg-red-100 border-red-300 text-brand-red' : 'bg-green-50 hover:bg-green-100 border-green-300 text-brand-green'"
-				class="inline-flex items-center gap-1.5 justify-center min-h-[36px] px-4 py-2 border text-sm font-bold rounded-lg transition-colors cursor-pointer"
-			>
-				<span class="w-1.5 h-1.5 rounded-full" :class="active ? 'bg-brand-red' : 'bg-brand-green'"></span>
-				<span x-text="active ? 'Deactivate account' : 'Activate account'"></span>
-			</button>
-		</div>
-	}
+		} else {
+			<div class="flex flex-wrap items-center gap-3">
+				<input type="hidden" name="active" :value="active ? 'true' : 'false'"/>
+				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
+				<button
+					type="button"
+					@click="active = !active"
+					:class="active ? 'bg-red-50 hover:bg-red-100 border-red-300 text-brand-red' : 'bg-green-50 hover:bg-green-100 border-green-300 text-brand-green'"
+					class="inline-flex items-center gap-1.5 justify-center min-h-[36px] px-4 py-2 border text-sm font-bold rounded-lg transition-colors cursor-pointer"
+				>
+					<span class="w-1.5 h-1.5 rounded-full" :class="active ? 'bg-brand-red' : 'bg-brand-green'"></span>
+					<span x-text="active ? 'Deactivate account' : 'Activate account'"></span>
+				</button>
+			</div>
+		}
 	</form>
 }

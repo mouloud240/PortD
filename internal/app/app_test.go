@@ -15,9 +15,11 @@ import (
 	activitysvc "github.com/portd/internal/activity"
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/db/generated"
+	apphttp "github.com/portd/internal/http"
 	internsvc "github.com/portd/internal/interns"
 	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
+	"github.com/portd/internal/runtime"
 	_ "modernc.org/sqlite"
 )
 
@@ -72,7 +74,7 @@ func TestLoginRecordsAuditAndActivityPageGated(t *testing.T) {
 	queries := db.New(database)
 	authService := auth.NewService(queries, "admin", "admin-password")
 	activityService := testActivity(t, queries)
-	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), activityService)
+	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test", "", nil), testPorts(queries), activityService)
 	ctx := context.Background()
 
 	login := func(username, password string) *httptest.ResponseRecorder {
@@ -159,6 +161,41 @@ func TestLoginRecordsAuditAndActivityPageGated(t *testing.T) {
 	}
 }
 
+func TestDetectPostRegistersDirectories(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "found-app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	database := testDB(t)
+	initDB(t, database)
+	queries := db.New(database)
+	authService := auth.NewService(queries, "admin", "admin-password")
+	projectService := projectsvc.NewService(database, queries, "https://portd.example.test", dir, runtime.FileScaffolder{})
+	handler := apphttp.NewRouter(authService, internsvc.NewService(queries), projectService, testPorts(queries), testActivity(t, queries))
+	ctx := context.Background()
+	session, err := authService.Login(ctx, "admin", "admin-password")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/projects/detect", nil)
+	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	got, err := projectService.GetBySlug(ctx, "found-app")
+	if err != nil {
+		t.Fatalf("detected project missing: %v", err)
+	}
+	if len(got.Interns) != 0 || got.Project.LifecycleStatus != "draft" {
+		t.Fatalf("detected = %+v, want unassigned draft", got.Project)
+	}
+}
+
 func TestPlaceholderPage(t *testing.T) {
 	t.Parallel()
 
@@ -175,7 +212,7 @@ func TestPlaceholderPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test", "", nil), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -205,7 +242,7 @@ func TestInternsListPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test", "", nil), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -235,7 +272,7 @@ func TestInternNewPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test", "", nil), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -266,7 +303,7 @@ func TestInternCreateValidationConflictAndNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries))
+	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test", "", nil), testPorts(queries), testActivity(t, queries))
 	post := func(path string, form url.Values) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -358,7 +395,7 @@ func testDB(t *testing.T) *sql.DB {
 func testHandler(t *testing.T, database *sql.DB, authService *auth.Service) http.Handler {
 	t.Helper()
 	queries := db.New(database)
-	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries))
+	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test", "", nil), testPorts(queries), testActivity(t, queries))
 }
 
 func testActivity(t *testing.T, queries *db.Queries) *activitysvc.Service {
@@ -369,6 +406,26 @@ func testActivity(t *testing.T, queries *db.Queries) *activitysvc.Service {
 	return service
 }
 
+func TestOpenDatabaseWaitsOnLocks(t *testing.T) {
+	t.Parallel()
+
+	database, err := openDatabase(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	var busyTimeout int64
+	if err := database.QueryRow("PRAGMA busy_timeout").Scan(&busyTimeout); err != nil {
+		t.Fatal(err)
+	}
+	if busyTimeout != 5000 {
+		t.Fatalf("busy_timeout = %d, want 5000", busyTimeout)
+	}
+	if got := database.Stats().MaxOpenConnections; got != 1 {
+		t.Fatalf("MaxOpenConnections = %d, want 1", got)
+	}
+}
+
 func TestInternSeesAndManagesOwnProjects(t *testing.T) {
 	t.Parallel()
 
@@ -377,7 +434,7 @@ func TestInternSeesAndManagesOwnProjects(t *testing.T) {
 	queries := db.New(database)
 	authService := auth.NewService(queries, "admin", "admin-password")
 	internService := internsvc.NewService(queries)
-	projectService := projectsvc.NewService(database, queries, "https://portd.example.test")
+	projectService := projectsvc.NewService(database, queries, "https://portd.example.test", "", nil)
 	handler := NewHandler(authService, internService, projectService, testPorts(queries), testActivity(t, queries))
 	ctx := context.Background()
 

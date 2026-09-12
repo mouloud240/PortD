@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -132,6 +133,7 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		AccessMode:      form.AccessMode,
 	})
 	if err != nil {
+		slog.Error("project create failed", "error", err.Error())
 		switch {
 		case errors.Is(err, projectsvc.ErrInvalid):
 			form.Error = "Name, at least one active intern, a valid lifecycle, and 1–5 ports are required."
@@ -139,6 +141,9 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		case errors.Is(err, projectsvc.ErrConflict):
 			form.Error = "A project with that slug already exists."
 			return httperr.Render(w, r, http.StatusConflict, pages.ProjectFormPage(form))
+		case errors.Is(err, projectsvc.ErrScaffold):
+			form.Error = "The project directory could not be prepared. Check the projects directory and try again."
+			return httperr.Render(w, r, http.StatusInternalServerError, pages.ProjectFormPage(form))
 		case errors.Is(err, portsvc.ErrNoPorts):
 			form.Error = "Not enough free ports in range 3000–9999 for this project."
 			return httperr.Render(w, r, http.StatusConflict, pages.ProjectFormPage(form))
@@ -151,7 +156,7 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		EventType:  activitysvc.ProjectCreate,
 		EntityType: "project",
 		EntityID:   created.Project.Slug,
-		Detail:     created.Project.Name,
+		Detail:     created.Project.Name + " in " + created.Project.Directory,
 	})
 	return nil
 }
@@ -403,6 +408,7 @@ func (h *ProjectsHandler) ProjectListItems(ctx context.Context, items []projects
 			ProxiedURL:      access.ProxiedURL,
 			ProxiedURLLabel: access.ProxiedURLLabel,
 			UpdatedAt:       formatUpdatedAt(item.Project.UpdatedAt),
+			MissingStartup:  projectsvc.MissingStartup(item.Project.Directory),
 		})
 	}
 	return out
@@ -477,6 +483,7 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 		LifecycleClass:  pages.LifecycleClass(detail.Project.LifecycleStatus),
 		LifecyclePhase:  pages.LifecyclePhase(detail.Project.LifecycleStatus),
 		RuntimeIntent:   runtimeIntent,
+		MissingStartup:  projectsvc.MissingStartup(detail.Project.Directory),
 		RuntimeState:    runtimeState,
 		RuntimePID:      strconv.Itoa(runtimeStatus.PID),
 		RuntimeFile:     runtimeFile,

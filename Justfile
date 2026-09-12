@@ -49,6 +49,21 @@ create-migration name:
 test: templ
     go test ./...
 
+# Production builds (static, no cgo): templ first, like test does.
+build-linux:
+    go tool templ generate
+    mkdir -p bin
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o bin/portd-linux-amd64 ./cmd/portd
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o bin/migrate-linux-amd64 ./cmd/migrate
+
+build-windows:
+    go tool templ generate
+    mkdir -p bin
+    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o bin/portd-windows-amd64.exe ./cmd/portd
+    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o bin/migrate-windows-amd64.exe ./cmd/migrate
+
+build-all: build-linux build-windows
+
 # Live reload for development: watches Go and templ sources, Uses temp Live reload feature
 dev:
      go tool templ generate --watch --proxy="http://localhost:8080" --cmd="go run ./cmd/portd"

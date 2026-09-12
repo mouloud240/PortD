@@ -53,6 +53,17 @@ func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	lifecycle := make([]pages.LifecycleBar, 0, len(overview.Lifecycle))
+	for _, entry := range overview.Lifecycle {
+		lifecycle = append(lifecycle, pages.LifecycleBar{
+			Status:  entry.Status,
+			Label:   entry.Label,
+			Class:   entry.Class,
+			Color:   entry.Color,
+			Count:   entry.Count,
+			Percent: entry.Percent,
+		})
+	}
 	return httperr.Render(w, r, http.StatusOK, pages.DashboardPage(pages.DashboardData{
 		ActiveProjects: overview.Active,
 		LiveServices:   overview.Live,
@@ -60,6 +71,7 @@ func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) error {
 		AssignedPorts:  assigned,
 		UnknownPorts:   unknown,
 		ActiveInterns:  len(interns),
+		Lifecycle:      lifecycle,
 		Projects:       NewProjectsHandler(h.project, h.activity).ProjectListItems(ctx, overview.Recent),
 		Recent:         h.recentActivity(r),
 	}))

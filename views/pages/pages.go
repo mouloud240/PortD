@@ -82,6 +82,7 @@ type ProjectListItem struct {
 	ProxiedURL      string
 	ProxiedURLLabel string
 	UpdatedAt       string
+	MissingStartup  bool
 }
 
 // InternOption is a selectable intern on the project form.
@@ -164,6 +165,7 @@ type ProjectDetailData struct {
 	LifecycleClass  string
 	LifecyclePhase  string
 	RuntimeIntent   string
+	MissingStartup  bool
 	RuntimeState    string
 	RuntimePID      string
 	RuntimeFile     string
@@ -203,6 +205,16 @@ type PortsPageData struct {
 	Rows      []PortRow
 }
 
+// LifecycleBar is one bar of the overview lifecycle breakdown.
+type LifecycleBar struct {
+	Status  string
+	Label   string
+	Class   string
+	Color   string
+	Count   int
+	Percent int
+}
+
 // DashboardData is the finished overview value.
 type DashboardData struct {
 	ActiveProjects int
@@ -211,6 +223,7 @@ type DashboardData struct {
 	AssignedPorts  int
 	UnknownPorts   int
 	ActiveInterns  int
+	Lifecycle      []LifecycleBar
 	Projects       []ProjectListItem
 	Recent         []ActivityItem
 }

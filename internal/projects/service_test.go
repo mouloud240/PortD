@@ -3,12 +3,16 @@ package projects
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	db "github.com/portd/internal/db/generated"
+	"github.com/portd/internal/runtime"
 	_ "modernc.org/sqlite"
 )
 
@@ -109,6 +113,162 @@ func TestCreateRejectsInvalidAndConflict(t *testing.T) {
 	}
 }
 
+func TestCreateScaffoldsDirectory(t *testing.T) {
+	t.Parallel()
+	service, queries := testService(t)
+	createIntern(t, queries, "i1", "Alice")
+
+	created, err := service.Create(context.Background(), CreateInput{
+		Name:        "Docs App",
+		Description: "Team docs site",
+		InternIDs:   []string{"i1"},
+		PortCount:   2,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	dir := created.Project.Directory
+	if !strings.HasSuffix(dir, string(filepath.Separator)+"docs-app") {
+		t.Fatalf("directory = %q, want suffix /docs-app", dir)
+	}
+	for _, file := range []string{"start.sh", "start.bat", "README.md"} {
+		info, err := os.Stat(filepath.Join(dir, file))
+		if err != nil {
+			t.Fatalf("stat %s: %v", file, err)
+		}
+		if file != "README.md" && info.Mode().Perm()&0o111 == 0 {
+			t.Fatalf("%s is not executable: %v", file, info.Mode())
+		}
+	}
+	readme, err := os.ReadFile(filepath.Join(dir, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ports, err := queries.ListProjectPorts(context.Background(), created.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mainPort int64
+	for _, port := range ports {
+		if port.Role == "main" {
+			mainPort = port.Port
+		}
+	}
+	if mainPort == 0 {
+		t.Fatalf("no main port in %+v", ports)
+	}
+	for _, want := range []string{
+		"# Docs App",
+		"Team docs site",
+		"`docs-app`",
+		"`./start.sh`",
+		"localhost:" + strconv.FormatInt(mainPort, 10),
+		"- Proxied: https://portd.example.test/docs-app",
+		"- Direct: https://portd.example.test:" + strconv.FormatInt(mainPort, 10) + "/",
+	} {
+		if !strings.Contains(string(readme), want) {
+			t.Errorf("README missing %q\n---\n%s", want, readme)
+		}
+	}
+}
+
+func TestCreateFailsWhenDirectoryBlocked(t *testing.T) {
+	t.Parallel()
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service, queries := testServiceIn(t, blocker)
+	createIntern(t, queries, "i1", "Alice")
+
+	_, err := service.Create(context.Background(), CreateInput{
+		Name:      "Blocked App",
+		InternIDs: []string{"i1"},
+		PortCount: 1,
+	})
+	if !errors.Is(err, ErrScaffold) {
+		t.Fatalf("error = %v, want %v", err, ErrScaffold)
+	}
+	if _, err := service.GetBySlug(context.Background(), "blocked-app"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("project row exists despite scaffold failure: %v", err)
+	}
+}
+
+func TestDetectRegistersMissing(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	for _, name := range []string{"new-app", "bare", "existing", ".hidden", "---"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "new-app", "start.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service, queries := testServiceIn(t, dir)
+	createIntern(t, queries, "i1", "Alice")
+	if _, err := service.Create(context.Background(), CreateInput{
+		Name: "Existing", InternIDs: []string{"i1"}, PortCount: 1,
+	}); err != nil {
+		t.Fatalf("seed create: %v", err)
+	}
+
+	added, err := service.Detect(context.Background())
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(added) != 2 || added[0] != "bare" || added[1] != "new-app" {
+		t.Fatalf("added = %v, want [bare new-app]", added)
+	}
+	for _, slug := range added {
+		got, err := service.GetBySlug(context.Background(), slug)
+		if err != nil {
+			t.Fatalf("get %s: %v", slug, err)
+		}
+		if len(got.Interns) != 0 {
+			t.Fatalf("%s interns = %d, want 0", slug, len(got.Interns))
+		}
+		ports, err := queries.ListProjectPorts(context.Background(), got.Project.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(ports) != 0 {
+			t.Fatalf("%s ports = %d, want 0", slug, len(ports))
+		}
+		if got.Project.LifecycleStatus != "draft" {
+			t.Fatalf("%s lifecycle = %q, want draft", slug, got.Project.LifecycleStatus)
+		}
+	}
+
+	again, err := service.Detect(context.Background())
+	if err != nil {
+		t.Fatalf("re-detect: %v", err)
+	}
+	if len(again) != 0 {
+		t.Fatalf("re-detect added = %v, want none", again)
+	}
+}
+
+func TestMissingStartup(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if !MissingStartup(dir) {
+		t.Fatalf("empty dir should miss startup files")
+	}
+	if !MissingStartup("") {
+		t.Fatalf("empty path should miss startup files")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "start.bat"), []byte("@echo off\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if MissingStartup(dir) {
+		t.Fatalf("dir with start.bat should not miss startup files")
+	}
+}
+
 func TestGetBySlugNotFound(t *testing.T) {
 	t.Parallel()
 	service, _ := testService(t)
@@ -118,7 +278,7 @@ func TestGetBySlugNotFound(t *testing.T) {
 }
 
 func TestDirectProjectURL(t *testing.T) {
-	svc := NewService(nil, nil, "http://10.243.1.20:8080/portd")
+	svc := NewService(nil, nil, "http://10.243.1.20:8080/portd", "", nil)
 	for _, test := range []struct {
 		port int64
 		want string
@@ -217,6 +377,11 @@ func TestProjectURL(t *testing.T) {
 
 func testService(t *testing.T) (*Service, *db.Queries) {
 	t.Helper()
+	return testServiceIn(t, t.TempDir())
+}
+
+func testServiceIn(t *testing.T, projectsDir string) (*Service, *db.Queries) {
+	t.Helper()
 	database, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -236,7 +401,7 @@ func testService(t *testing.T) (*Service, *db.Queries) {
 		}
 	}
 	queries := db.New(database)
-	return NewService(database, queries, "https://portd.example.test"), queries
+	return NewService(database, queries, "https://portd.example.test", projectsDir, runtime.FileScaffolder{}), queries
 }
 
 func createIntern(t *testing.T, queries *db.Queries, id, name string) {

@@ -16,6 +16,23 @@ import (
 	"github.com/portd/internal/runtime"
 )
 
+func (h *ProjectsHandler) DetectPost(w http.ResponseWriter, r *http.Request) error {
+	added, err := h.service.Detect(r.Context())
+	if err != nil {
+		return err
+	}
+	for _, slug := range added {
+		h.activity.Record(r.Context(), activitysvc.Event{
+			EventType:  activitysvc.ProjectCreate,
+			EntityType: "project",
+			EntityID:   slug,
+			Detail:     "detected on disk",
+		})
+	}
+	http.Redirect(w, r, "/projects", http.StatusSeeOther)
+	return nil
+}
+
 func (h *ProjectsHandler) PromotePortPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return httperr.BadRequest("Invalid form submission.", err)

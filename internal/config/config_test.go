@@ -1,6 +1,10 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestLoadUsesDefaultHTTPAddress(t *testing.T) {
 	t.Setenv("PORTD_HTTP_ADDR", "")
@@ -37,5 +41,24 @@ func TestLoadUsesDefaultAdmin(t *testing.T) {
 	cfg := Load()
 	if cfg.AdminUsername != defaultAdminUsername || cfg.AdminPassword != defaultAdminPassword {
 		t.Fatalf("admin defaults = %q/%q", cfg.AdminUsername, cfg.AdminPassword)
+	}
+}
+
+func TestLoadProjectsDir(t *testing.T) {
+	t.Setenv("PORTD_PROJECTS_DIR", "")
+	if got := Load().ProjectsDir; got != defaultProjectsDir {
+		t.Fatalf("ProjectsDir = %q, want %q", got, defaultProjectsDir)
+	}
+	t.Setenv("PORTD_PROJECTS_DIR", "/srv/portd/projects/")
+	if got := Load().ProjectsDir; got != "/srv/portd/projects" {
+		t.Fatalf("ProjectsDir = %q, want trimmed %q", got, "/srv/portd/projects")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Skip("no home directory")
+	}
+	t.Setenv("PORTD_PROJECTS_DIR", "~/dev/portd-projects")
+	if got := Load().ProjectsDir; got != filepath.Join(home, "dev/portd-projects") {
+		t.Fatalf("ProjectsDir = %q, want expanded %q", got, filepath.Join(home, "dev/portd-projects"))
 	}
 }

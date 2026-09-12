@@ -68,6 +68,12 @@ server does not modify the database schema during startup. The `Justfile`
 expects `just` and `sqlc` to be installed, and runs the migration CLI through
 `go run`.
 
+`PORTD_PROJECTS_DIR` controls where project directories are scaffolded and
+defaults to `/var/portd/projects`. Creating a project makes
+`<dir>/<slug>/` with `start.sh`, `start.bat`, and a generated `README.md`
+describing the project, its ports, and how PortD runs and exposes it; a disk
+failure aborts creation before any database row is written.
+
 ## Documentation
 
 - [Product requirements](agent_docs/prd.md) — detailed flows, data model, and acceptance criteria.

@@ -34,9 +34,9 @@ type App struct {
 	wait     sync.WaitGroup
 }
 
-// New constructs the database, services, and HTTP router for PortD.
-func New(cfg config.Config) (*App, error) {
-	database, err := sql.Open("sqlite", cfg.DBPath)
+// openDatabase opens the SQLite file with the pragmas PortD relies on.
+func openDatabase(path string) (*sql.DB, error) {
+	database, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +44,32 @@ func New(cfg config.Config) (*App, error) {
 		_ = database.Close()
 		return nil, err
 	}
+	// Wait on locked tables instead of failing instantly: background
+	// writers (healthchecks, activity, port observations) otherwise make
+	// concurrent reads fail with SQLITE_BUSY, which the session
+	// middleware misreads as an invalid session and bounces to /login.
+	if _, err := database.Exec("PRAGMA busy_timeout = 5000"); err != nil {
+		_ = database.Close()
+		return nil, err
+	}
+	// One connection keeps every query on the connection carrying the
+	// pragmas above and removes lock contention between the HTTP
+	// handlers and the background pollers at this scale.
+	database.SetMaxOpenConns(1)
+	return database, nil
+}
+
+// New constructs the database, services, and HTTP router for PortD.
+func New(cfg config.Config) (*App, error) {
+	database, err := openDatabase(cfg.DBPath)
+	if err != nil {
+		return nil, err
+	}
 
 	queries := db.New(database)
 	authService := auth.NewService(queries, cfg.AdminUsername, cfg.AdminPassword)
 	internService := internsvc.NewService(queries)
-	projectService := projectsvc.NewService(database, queries, cfg.BaseURL)
+	projectService := projectsvc.NewService(database, queries, cfg.BaseURL, cfg.ProjectsDir, runtime.FileScaffolder{})
 	runtimeManager := runtime.NewManager()
 	activityService := activitysvc.NewService(queries)
 	activityService.Start()

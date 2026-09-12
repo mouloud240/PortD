@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,12 +20,14 @@ import (
 	"github.com/portd/internal/auth"
 	db "github.com/portd/internal/db/generated"
 	portsvc "github.com/portd/internal/ports"
+	"github.com/portd/internal/runtime"
 )
 
 var (
 	ErrInvalid  = errors.New("invalid project data")
 	ErrConflict = errors.New("project already exists")
 	ErrNotFound = errors.New("project not found")
+	ErrScaffold = errors.New("could not prepare project directory")
 )
 
 const (
@@ -37,14 +42,23 @@ var (
 	}
 )
 
+// defaultProjectsDir matches the historical hard-coded project location.
+const defaultProjectsDir = "/var/portd/projects"
+
 type Service struct {
-	db      *sql.DB
-	queries *db.Queries
-	baseURL string
+	db          *sql.DB
+	queries     *db.Queries
+	baseURL     string
+	projectsDir string
+	scaffold    runtime.Scaffolder
 }
 
-func NewService(database *sql.DB, queries *db.Queries, baseURL string) *Service {
-	return &Service{db: database, queries: queries, baseURL: strings.TrimSpace(baseURL)}
+func NewService(database *sql.DB, queries *db.Queries, baseURL, projectsDir string, scaffold runtime.Scaffolder) *Service {
+	projectsDir = strings.TrimRight(strings.TrimSpace(projectsDir), "/")
+	if projectsDir == "" {
+		projectsDir = defaultProjectsDir
+	}
+	return &Service{db: database, queries: queries, baseURL: strings.TrimSpace(baseURL), projectsDir: projectsDir, scaffold: scaffold}
 }
 
 // ProjectURL builds the public project URL from the configured base URL and slug.
@@ -227,9 +241,30 @@ func (s *Service) ListActiveInterns(ctx context.Context) ([]db.Intern, error) {
 }
 
 type Overview struct {
-	Active int
-	Live   int
-	Recent []ProjectWithInterns
+	Active    int
+	Live      int
+	Recent    []ProjectWithInterns
+	Lifecycle []LifecycleCount
+}
+
+// LifecycleCount is one bar of the overview lifecycle breakdown.
+type LifecycleCount struct {
+	Status  string
+	Label   string
+	Class   string
+	Color   string
+	Count   int
+	Percent int
+}
+
+// lifecycleOrder fixes the dashboard bar order; archived is excluded
+// because Overview only counts active projects.
+var lifecycleOrder = []LifecycleCount{
+	{Status: "draft", Label: "Draft", Class: "draft", Color: "#2d5fb3"},
+	{Status: "ready", Label: "Ready", Class: "ready", Color: "#9a5500"},
+	{Status: "running", Label: "Running", Class: "running", Color: "#087f44"},
+	{Status: "stopped", Label: "Stopped", Class: "stopped", Color: "#bd2d2d"},
+	{Status: "failed", Label: "Failed", Class: "failed", Color: "#bd2d2d"},
 }
 
 func (s *Service) Overview(ctx context.Context) (Overview, error) {
@@ -247,11 +282,13 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 		return Overview{}, err
 	}
 	out := Overview{}
+	counts := make(map[string]int, len(lifecycleOrder))
 	for _, project := range rows {
 		if project.LifecycleStatus == "archived" {
 			continue
 		}
 		out.Active++
+		counts[project.LifecycleStatus]++
 		if project.IsLive == 1 {
 			out.Live++
 		}
@@ -263,6 +300,21 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 			return Overview{}, err
 		}
 		out.Recent = append(out.Recent, ProjectWithInterns{Project: project, Interns: interns})
+	}
+	// ponytail: tallied in memory from rows already fetched above; switch to
+	// SELECT lifecycle_status, COUNT(*) ... GROUP BY when projects number in the thousands.
+	peak := 0
+	for _, entry := range lifecycleOrder {
+		if counts[entry.Status] > peak {
+			peak = counts[entry.Status]
+		}
+	}
+	for _, entry := range lifecycleOrder {
+		entry.Count = counts[entry.Status]
+		if peak > 0 {
+			entry.Percent = entry.Count * 100 / peak
+		}
+		out.Lifecycle = append(out.Lifecycle, entry)
 	}
 	return out, nil
 }
@@ -307,6 +359,20 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 		return ProjectWithInterns{}, err
 	}
 
+	// Scaffold the directory before the row exists so a disk failure
+	// aborts creation instead of leaving a row without a home.
+	directory := filepath.Join(s.projectsDir, slug)
+	if s.scaffold != nil {
+		if err := s.scaffold.Create(ctx, runtime.Scaffold{
+			Directory:      directory,
+			Slug:           slug,
+			StartupCommand: "./start.sh",
+		}); err != nil {
+			return ProjectWithInterns{}, fmt.Errorf("%w: %v", ErrScaffold, err)
+		}
+		slog.Info("project directory scaffolded", "slug", slug, "directory", directory)
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	shouldRun := int64(0)
 	if in.ShouldRun {
@@ -326,7 +392,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 		Name:            name,
 		Slug:            slug,
 		Description:     strings.TrimSpace(in.Description),
-		Directory:       "/var/portd/projects/" + slug,
+		Directory:       directory,
 		StartupCommand:  "./start.sh",
 		ShouldRun:       shouldRun,
 		IsLive:          0,
@@ -355,7 +421,132 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if err != nil {
 		return ProjectWithInterns{}, err
 	}
+	if s.scaffold != nil {
+		s.writeReadme(ctx, project, accessMode)
+	}
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
+}
+
+// writeReadme regenerates the project README with the committed details.
+// A failure is logged but never fails creation: the directory and row
+// already exist and the README can be rewritten later.
+func (s *Service) writeReadme(ctx context.Context, project db.Project, accessMode string) {
+	assigned, err := s.queries.ListProjectPorts(ctx, project.ID)
+	if err != nil {
+		slog.Error("project readme ports failed", "slug", project.Slug, "error", err)
+		return
+	}
+	main, err := s.queries.GetProjectMainPort(ctx, project.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		slog.Error("project readme main port failed", "slug", project.Slug, "error", err)
+		return
+	}
+	ports := make([]runtime.PortRef, 0, len(assigned))
+	for _, port := range assigned {
+		ports = append(ports, runtime.PortRef{Port: port.Port, Role: port.Role, Main: port.Port == main.Port})
+	}
+	directURL, err := s.DirectProjectURL(main.Port)
+	if err != nil {
+		slog.Error("project readme direct URL failed", "slug", project.Slug, "error", err)
+		directURL = ""
+	}
+	if err := s.scaffold.WriteReadme(ctx, runtime.Scaffold{
+		Directory:      project.Directory,
+		Slug:           project.Slug,
+		Name:           project.Name,
+		Description:    project.Description,
+		StartupCommand: project.StartupCommand,
+		AccessMode:     accessMode,
+		Ports:          ports,
+		MainPort:       main.Port,
+		PublicURL:      s.ProjectURL(project.Slug),
+		DirectURL:      directURL,
+	}); err != nil {
+		slog.Error("project readme failed", "slug", project.Slug, "error", err)
+		return
+	}
+	slog.Info("project readme written", "slug", project.Slug, "directory", project.Directory)
+}
+
+// Detect registers project directories missing from the registry and
+// returns their slugs. Folders that are hidden, not directories, have an
+// unusable name, or are already registered by slug or directory are
+// skipped. Detected projects get no interns and no ports; assign them
+// from the project page afterwards.
+func (s *Service) Detect(ctx context.Context) ([]string, error) {
+	entries, err := os.ReadDir(s.projectsDir)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrScaffold, err)
+	}
+	known, err := s.List(ctx, "", "", -1)
+	if err != nil {
+		return nil, err
+	}
+	slugs := make(map[string]struct{}, len(known))
+	dirs := make(map[string]struct{}, len(known))
+	for _, item := range known {
+		slugs[item.Project.Slug] = struct{}{}
+		dirs[item.Project.Directory] = struct{}{}
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	var added []string
+	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		slug := slugify(entry.Name())
+		if !slugPattern.MatchString(slug) {
+			continue
+		}
+		directory := filepath.Join(s.projectsDir, entry.Name())
+		if _, ok := slugs[slug]; ok {
+			continue
+		}
+		if _, ok := dirs[directory]; ok {
+			continue
+		}
+		_, err := s.queries.CreateProject(ctx, db.CreateProjectParams{
+			ID:              uuid.NewString(),
+			Name:            entry.Name(),
+			Slug:            slug,
+			Description:     "",
+			Directory:       directory,
+			StartupCommand:  "./start.sh",
+			ShouldRun:       0,
+			IsLive:          0,
+			LifecycleStatus: "draft",
+			RouteSyncStatus: "pending",
+			AccessMode:      AccessModeDirect,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		})
+		if isConflict(err) {
+			continue
+		}
+		if err != nil {
+			return added, err
+		}
+		slugs[slug] = struct{}{}
+		dirs[directory] = struct{}{}
+		added = append(added, slug)
+		slog.Info("project detected", "slug", slug, "directory", directory)
+	}
+	return added, nil
+}
+
+// MissingStartup reports whether a project directory holds neither
+// start.sh nor start.bat.
+func MissingStartup(directory string) bool {
+	if directory == "" {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(directory, "start.sh")); err == nil {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(directory, "start.bat")); err == nil {
+		return false
+	}
+	return true
 }
 
 func (s *Service) Update(ctx context.Context, slug string, in UpdateInput) (ProjectWithInterns, error) {
