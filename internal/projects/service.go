@@ -102,6 +102,31 @@ type UpdateInput struct {
 	AccessMode      string
 }
 
+func (s *Service) SetStartupCommand(ctx context.Context, slug, command string) error {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return ErrInvalid
+	}
+	return s.queries.SetProjectStartupCommand(ctx, db.SetProjectStartupCommandParams{
+		StartupCommand: command,
+		UpdatedAt:      time.Now().UTC().Format(time.RFC3339Nano),
+		Slug:           slug,
+	})
+}
+
+func (s *Service) SetRuntimeIntent(ctx context.Context, slug string, shouldRun bool, lifecycle string) error {
+	value := int64(0)
+	if shouldRun {
+		value = 1
+	}
+	return s.queries.SetProjectRuntimeIntent(ctx, db.SetProjectRuntimeIntentParams{
+		ShouldRun:       value,
+		LifecycleStatus: lifecycle,
+		UpdatedAt:       time.Now().UTC().Format(time.RFC3339Nano),
+		Slug:            slug,
+	})
+}
+
 func (s *Service) List(ctx context.Context, search, lifecycleStatus string, isLive int64) ([]ProjectWithInterns, error) {
 	search = strings.TrimSpace(search)
 	if lifecycleStatus != "" {

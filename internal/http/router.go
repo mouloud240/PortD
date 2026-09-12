@@ -4,6 +4,7 @@ package http
 import (
 	"net/http"
 
+	activitysvc "github.com/portd/internal/activity"
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/http/handlers"
 	"github.com/portd/internal/http/middleware"
@@ -11,6 +12,7 @@ import (
 	internsvc "github.com/portd/internal/interns"
 	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
+	"github.com/portd/internal/runtime"
 )
 
 // NewRouter registers PortD's public HTTP routes.
@@ -19,12 +21,14 @@ func NewRouter(
 	internService *internsvc.Service,
 	projectService *projectsvc.Service,
 	portService *portsvc.Service,
+	activityService *activitysvc.Service,
+	runtimeManagers ...*runtime.Manager,
 ) http.Handler {
-	pageHandlers := handlers.New(authService, internService, projectService, portService)
-	authHandlers := handlers.NewAuthHandler(authService)
-	internHandlers := handlers.NewInternsHandler(internService)
+	pageHandlers := handlers.New(authService, internService, projectService, portService, activityService)
+	authHandlers := handlers.NewAuthHandler(authService, activityService)
+	internHandlers := handlers.NewInternsHandler(internService, activityService)
 	portHandlers := handlers.NewPortsHandler(portService)
-	projectHandlers := handlers.NewProjectsHandler(projectService)
+	projectHandlers := handlers.NewProjectsHandler(projectService, activityService, runtimeManagers...)
 	requireSession := middleware.RequireSession(authService)
 	requireAdmin := middleware.RequireAdmin(authService)
 	requireProjectMember := middleware.RequireProjectMember(authService, projectService)
@@ -42,7 +46,7 @@ func NewRouter(
 	mux.Handle("GET /dashboard", httperr.Handle(requireSession(pageHandlers.Dashboard)))
 	mux.Handle("GET /profile", httperr.Handle(requireSession(pageHandlers.ProfilePage)))
 	mux.Handle("POST /profile", httperr.Handle(requireSession(pageHandlers.ProfileUpdate)))
-	mux.Handle("GET /activity", httperr.Handle(requireSession(pageHandlers.Activity)))
+	mux.Handle("GET /activity", httperr.Handle(requireAdmin(pageHandlers.Activity)))
 	mux.Handle("GET /ports", httperr.Handle(requireSession(portHandlers.ListPage)))
 	// Projects
 
@@ -53,6 +57,9 @@ func NewRouter(
 	mux.Handle("GET /projects/{slug}/edit", httperr.Handle(requireProjectMember(projectHandlers.EditPage)))
 	mux.Handle("POST /projects/{slug}", httperr.Handle(requireProjectMember(projectHandlers.UpdatePost)))
 	mux.Handle("POST /projects/{slug}/archive", httperr.Handle(requireProjectMember(projectHandlers.ArchivePost)))
+	mux.Handle("POST /projects/{slug}/runtime/start", httperr.Handle(requireProjectMember(projectHandlers.RuntimeStartPost)))
+	mux.Handle("POST /projects/{slug}/runtime/stop", httperr.Handle(requireProjectMember(projectHandlers.RuntimeStopPost)))
+	mux.Handle("POST /projects/{slug}/runtime/configure", httperr.Handle(requireProjectMember(projectHandlers.RuntimeConfigurePost)))
 	mux.Handle("POST /projects/{slug}/ports/promote", httperr.Handle(requireProjectMember(projectHandlers.PromotePortPost)))
 	// Ports management
 	mux.Handle("POST /projects/{slug}/ports/allocate", httperr.Handle(requireProjectMember(projectHandlers.AllocatePortsPost)))
@@ -61,7 +68,7 @@ func NewRouter(
 	// Healthchecks management
 	mux.Handle("POST /projects/{slug}/healthchecks", httperr.Handle(requireProjectMember(projectHandlers.AddHealthcheckPost)))
 	mux.Handle("POST /projects/{slug}/healthchecks/{id}/delete", httperr.Handle(requireProjectMember(projectHandlers.RemoveHealthcheckPost)))
-	
+
 	// Interns management
 
 	mux.Handle("GET /interns", httperr.Handle(requireAdmin(internHandlers.ListPage)))

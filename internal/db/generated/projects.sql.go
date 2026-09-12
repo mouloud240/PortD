@@ -363,6 +363,49 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]P
 	return items, nil
 }
 
+const setProjectRuntimeIntent = `-- name: SetProjectRuntimeIntent :exec
+UPDATE projects
+SET should_run = ?,
+    lifecycle_status = ?,
+    updated_at = ?
+WHERE slug = ?
+`
+
+type SetProjectRuntimeIntentParams struct {
+	ShouldRun       int64  `json:"should_run"`
+	LifecycleStatus string `json:"lifecycle_status"`
+	UpdatedAt       string `json:"updated_at"`
+	Slug            string `json:"slug"`
+}
+
+func (q *Queries) SetProjectRuntimeIntent(ctx context.Context, arg SetProjectRuntimeIntentParams) error {
+	_, err := q.db.ExecContext(ctx, setProjectRuntimeIntent,
+		arg.ShouldRun,
+		arg.LifecycleStatus,
+		arg.UpdatedAt,
+		arg.Slug,
+	)
+	return err
+}
+
+const setProjectStartupCommand = `-- name: SetProjectStartupCommand :exec
+UPDATE projects
+SET startup_command = ?,
+    updated_at = ?
+WHERE slug = ?
+`
+
+type SetProjectStartupCommandParams struct {
+	StartupCommand string `json:"startup_command"`
+	UpdatedAt      string `json:"updated_at"`
+	Slug           string `json:"slug"`
+}
+
+func (q *Queries) SetProjectStartupCommand(ctx context.Context, arg SetProjectStartupCommandParams) error {
+	_, err := q.db.ExecContext(ctx, setProjectStartupCommand, arg.StartupCommand, arg.UpdatedAt, arg.Slug)
+	return err
+}
+
 const updateProject = `-- name: UpdateProject :one
 UPDATE projects
 SET name = ?,

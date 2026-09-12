@@ -1,6 +1,11 @@
 package pages
 
-import "github.com/portd/internal/db/generated"
+import (
+	"strings"
+	"time"
+
+	"github.com/portd/internal/db/generated"
+)
 
 // InternListItem is the finished row value the list template ranges over.
 type InternListItem struct {
@@ -122,7 +127,9 @@ type HealthcheckItem struct {
 }
 
 type QuickstartItem struct {
+	Key         string
 	Name        string
+	File        string
 	Description string
 	Snippet     string
 	NoConfig    bool
@@ -138,6 +145,7 @@ type ProjectAccessData struct {
 	ProxiedURL      string
 	ProxiedURLLabel string
 	Quickstarts     []QuickstartItem
+	AIPrompt        string
 }
 
 // ProjectDetailData is the finished project detail page value.
@@ -156,6 +164,10 @@ type ProjectDetailData struct {
 	LifecycleClass  string
 	LifecyclePhase  string
 	RuntimeIntent   string
+	RuntimeState    string
+	RuntimePID      string
+	RuntimeFile     string
+	RuntimeError    string
 	ShouldRun       bool
 	IsLive          bool
 	StatusLabel     string
@@ -191,7 +203,7 @@ type PortsPageData struct {
 	Rows      []PortRow
 }
 
-// DashboardData is the finished overview value; activity stays static for now.
+// DashboardData is the finished overview value.
 type DashboardData struct {
 	ActiveProjects int
 	LiveServices   int
@@ -200,6 +212,169 @@ type DashboardData struct {
 	UnknownPorts   int
 	ActiveInterns  int
 	Projects       []ProjectListItem
+	Recent         []ActivityItem
+}
+
+// ActivityItem is one audit row with display-ready strings.
+type ActivityItem struct {
+	Time          string
+	Event         string
+	EventLabel    string
+	Category      string
+	CategoryClass string
+	Entity        string
+	Actor         string
+	ActorShort    string
+	Outcome       string
+	OutcomeClass  string
+	Detail        string
+	Failed        bool
+}
+
+// ActivityData is the finished audit listing value.
+type ActivityData struct {
+	Title      string
+	Path       string
+	Items      []ActivityItem
+	EventTypes []string
+	EventType  string
+	Categories []string
+	Category   string
+	Outcome    string
+	Search     string
+	Page       int
+	HasPrev    bool
+	HasNext    bool
+}
+
+// ActivityItems converts log rows once so templates never touch sql.NullString.
+func ActivityItems(rows []db.ActivityLog) []ActivityItem {
+	items := make([]ActivityItem, 0, len(rows))
+	for _, row := range rows {
+		entity := row.EntityType
+		if row.EntityID.Valid {
+			entity += ":" + row.EntityID.String
+		}
+		actor := "admin"
+		actorShort := "admin"
+		if row.ActorInternID.Valid {
+			actor = row.ActorInternID.String
+			actorShort = actor
+			if len(actorShort) > 8 {
+				actorShort = actorShort[:8]
+			}
+		}
+		class := "running"
+		if row.Outcome != "success" {
+			class = "down"
+		}
+		category, categoryClass := activityCategory(row.EventType)
+		items = append(items, ActivityItem{
+			Time:          activityTime(row.CreatedAt),
+			Event:         row.EventType,
+			EventLabel:    activityLabel(row.EventType),
+			Category:      category,
+			CategoryClass: categoryClass,
+			Entity:        entity,
+			Actor:         actor,
+			ActorShort:    actorShort,
+			Outcome:       row.Outcome,
+			OutcomeClass:  class,
+			Detail:        row.Detail,
+			Failed:        row.Outcome != "success",
+		})
+	}
+	return items
+}
+
+func activityTime(ts string) string {
+	if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+		return t.Local().Format("Jan 2 15:04")
+	}
+	return ts
+}
+
+func activityLiClass(failed bool) string {
+	if failed {
+		return "red"
+	}
+	return ""
+}
+
+// activityCategory derives the display category from the event prefix.
+func activityCategory(event string) (string, string) {
+	switch {
+	case strings.HasPrefix(event, "project."):
+		return "Projects", "neutral"
+	case strings.HasPrefix(event, "runtime."):
+		return "Runtime", "warning"
+	case strings.HasPrefix(event, "port."):
+		return "Ports", "info"
+	case strings.HasPrefix(event, "intern."):
+		return "Interns", "running"
+	case strings.HasPrefix(event, "auth."):
+		return "Auth", "accent"
+	case strings.HasPrefix(event, "healthcheck."):
+		return "Healthchecks", "info"
+	default:
+		return "Other", "neutral"
+	}
+}
+
+// CategoryName turns a filter prefix into its display name.
+func CategoryName(prefix string) string {
+	name, _ := activityCategory(prefix + ".x")
+	return name
+}
+
+// activityLabel turns an event code into a human sentence fragment.
+func activityLabel(event string) string {
+	switch event {
+	case "auth.login":
+		return "Signed in"
+	case "auth.logout":
+		return "Signed out"
+	case "project.create":
+		return "Project created"
+	case "project.update":
+		return "Project updated"
+	case "project.archive":
+		return "Project archived"
+	case "runtime.start":
+		return "Runtime started"
+	case "runtime.stop":
+		return "Runtime stopped"
+	case "runtime.configure":
+		return "Startup file saved"
+	case "port.allocate":
+		return "Ports allocated"
+	case "port.release":
+		return "Port released"
+	case "port.claim":
+		return "Port claimed"
+	case "port.promote":
+		return "Port promoted"
+	case "healthcheck.add":
+		return "Healthcheck added"
+	case "healthcheck.remove":
+		return "Healthcheck removed"
+	case "intern.create":
+		return "Intern added"
+	case "intern.update":
+		return "Intern updated"
+	case "intern.profile":
+		return "Profile updated"
+	default:
+		action := event
+		if i := strings.LastIndex(action, "."); i >= 0 {
+			action = action[i+1:]
+		}
+		action = strings.ReplaceAll(action, "_", " ")
+		if action == "" {
+			return event
+		}
+		return strings.ToUpper(action[:1]) + action[1:]
+	}
 }
 
 // activeJS renders a Go bool as a JS boolean literal for x-init.

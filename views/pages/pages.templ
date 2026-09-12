@@ -71,12 +71,21 @@ templ dashboardBody(data DashboardData) {
 			</div>
 		</section>
 		<section class="panel activity">
-			<div class="panel-head"><h2>Recent activity</h2></div>
+			<div class="panel-head">
+				<div>
+					<h2>Recent activity</h2>
+				</div>
+				<a class="table-action" href="/activity">View all</a>
+			</div>
 			<ol>
-				<li><time>11:42</time><span><b>Internship Management System</b> became reachable.</span></li>
-				<li><time>11:37</time><span><b>Network Monitor</b> was registered.</span></li>
-				<li class="amber"><time>11:21</time><span>Unknown port <code>3012</code> detected.</span></li>
-				<li class="red"><time>10:54</time><span><b>HR Portal</b> is not reachable.</span></li>
+				for _, item := range data.Recent {
+					<li class={ activityLiClass(item.Failed) }><time>{ item.Time }</time><span><b>{ item.EventLabel }</b> { item.Entity }if item.Detail != "" {
+								{ " — " + item.Detail }
+							}</span></li>
+				}
+				if len(data.Recent) == 0 {
+					<li><span>No activity recorded yet.</span></li>
+				}
 			</ol>
 		</section>
 	</div>
@@ -84,6 +93,100 @@ templ dashboardBody(data DashboardData) {
 
 templ PlaceholderPage(title string, path string) {
 	@layouts.Shell(title, path, placeholderBody(title))
+}
+
+templ ActivityPage(data ActivityData) {
+	@layouts.Shell(data.Title, data.Path, activityBody(data))
+}
+
+templ activityBody(data ActivityData) {
+	<div class="page-heading">
+		<div>
+			<h1>Activity</h1>
+			<p>Audit trail of project, runtime, port, intern, and session events.</p>
+		</div>
+	</div>
+	<section class="panel">
+		<form class="toolbar" method="get">
+			<input name="q" value={ data.Search } type="search" placeholder="Search entity or detail" aria-label="Search activity"/>
+			<select name="category" aria-label="Filter by category" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ data.Category == "" }>All categories</option>
+				for _, category := range data.Categories {
+					<option value={ category } selected?={ data.Category == category }>{ CategoryName(category) }</option>
+				}
+			</select>
+			<select name="event_type" aria-label="Filter by event" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ data.EventType == "" }>All events</option>
+				for _, event := range data.EventTypes {
+					<option value={ event } selected?={ data.EventType == event }>{ event }</option>
+				}
+			</select>
+			<select name="outcome" aria-label="Filter by outcome" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ data.Outcome == "" }>All outcomes</option>
+				<option value="success" selected?={ data.Outcome == "success" }>Success</option>
+				<option value="failure" selected?={ data.Outcome == "failure" }>Failure</option>
+			</select>
+			<button class="button secondary" type="submit">Search</button>
+		</form>
+		<div class="panel-body table-wrap">
+			<table class="hub-table">
+				<thead>
+					<tr>
+						<th>Time</th>
+						<th>Event</th>
+						<th>Entity</th>
+						<th>Actor</th>
+						<th>Outcome</th>
+						<th>Detail</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, item := range data.Items {
+						<tr>
+							<td><time>{ item.Time }</time></td>
+							<td>
+								<div><strong>{ item.EventLabel }</strong></div>
+								<span class={ "badge " + item.CategoryClass }>{ item.Category }</span>
+							</td>
+							<td>{ item.Entity }</td>
+							<td><code class="hub-code" title={ item.Actor }>{ item.ActorShort }</code></td>
+							<td><span class={ "badge " + item.OutcomeClass }>{ item.Outcome }</span></td>
+							<td>{ item.Detail }</td>
+						</tr>
+					}
+					if len(data.Items) == 0 {
+						<tr>
+							<td colspan="6">
+								<div class="empty-state">No activity matches these filters.</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		<div class="panel-body">
+			if data.HasPrev {
+				<form method="get">
+					<input type="hidden" name="q" value={ data.Search }/>
+					<input type="hidden" name="category" value={ data.Category }/>
+					<input type="hidden" name="event_type" value={ data.EventType }/>
+					<input type="hidden" name="outcome" value={ data.Outcome }/>
+					<input type="hidden" name="page" value={ strconv.Itoa(data.Page - 1) }/>
+					<button class="button secondary" type="submit">← Newer</button>
+				</form>
+			}
+			if data.HasNext {
+				<form method="get">
+					<input type="hidden" name="q" value={ data.Search }/>
+					<input type="hidden" name="category" value={ data.Category }/>
+					<input type="hidden" name="event_type" value={ data.EventType }/>
+					<input type="hidden" name="outcome" value={ data.Outcome }/>
+					<input type="hidden" name="page" value={ strconv.Itoa(data.Page + 1) }/>
+					<button class="button secondary" type="submit">Older →</button>
+				</form>
+			}
+		</div>
+	</section>
 }
 
 templ placeholderBody(title string) {
@@ -464,7 +567,53 @@ templ projectDetailBody(data ProjectDetailData) {
 			</dl>
 		</section>
 		<section class="panel detail-panel">
-			<div class="panel-head"><h2>Runtime</h2></div>
+			<div class="panel-head">
+				<div>
+					<h2>Runtime</h2>
+					<p>Start or stop the project using its platform startup file.</p>
+				</div>
+				<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
+			</div>
+			<div class="panel-body panel-body-padded runtime-control">
+				if data.RuntimeError != "" {
+					<div class="runtime-alert" role="alert">{ data.RuntimeError }</div>
+				}
+				<div class="runtime-control-row">
+					<div>
+						<strong>{ data.RuntimeState }</strong>
+						if data.RuntimePID != "0" {
+							<p>Process <code class="hub-code">#{ data.RuntimePID }</code> is managed by PortD.</p>
+						} else {
+							<p>No managed process is running.</p>
+						}
+					</div>
+					if data.RuntimeState == "running" || data.RuntimeState == "stopping" {
+						<form method="post" action={ "/projects/" + data.Slug + "/runtime/stop" } x-data="{ busy: false }" @submit="busy = true">
+							<button class="button danger" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'stopping'">
+								<span x-show="!busy">Stop project</span><span x-show="busy" x-cloak>Stopping…</span>
+							</button>
+						</form>
+					} else {
+						<form method="post" action={ "/projects/" + data.Slug + "/runtime/start" } x-data="{ busy: false }" @submit="busy = true">
+							<button class="button primary" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'starting'">
+								<span x-show="!busy">Start project</span><span x-show="busy" x-cloak>Starting…</span>
+							</button>
+						</form>
+					}
+				</div>
+				<div class="runtime-file">
+					<span>Execution file</span>
+					<code class="hub-code">{ data.RuntimeFile }</code>
+					<form class="runtime-configure" method="post" action={ "/projects/" + data.Slug + "/runtime/configure" }>
+						<label class="sr-only" for="startup-command">Startup file path</label>
+						<input id="startup-command" name="startup_command" value={ data.RuntimeFile } placeholder="start.sh or start.bat" autocomplete="off"/>
+						<button class="button secondary" type="submit">Save file</button>
+					</form>
+					if data.RuntimeState == "failed" {
+						<p class="runtime-error">The process exited unexpectedly. Check the file and project logs before trying again.</p>
+					}
+				</div>
+			</div>
 			<dl class="hub-dl four-up">
 				<div>
 					<dt>Main port</dt>
@@ -487,7 +636,7 @@ templ projectDetailBody(data ProjectDetailData) {
 			</dl>
 		</section>
 	</div>
-	<section class="panel detail-panel access-panel" x-data="{ copied: '' }">
+	<section class="panel detail-panel access-panel" x-data="{ selectedFramework: '', copied: false }">
 		<div class="panel-head">
 			<div>
 				<h2>Project access</h2>
@@ -512,11 +661,11 @@ templ projectDetailBody(data ProjectDetailData) {
 			</div>
 			<div class="quickstarts">
 				<div class="panel-head access-subhead">
-					<div><h3>Framework quickstarts</h3><p>Use the Proxied path below when your framework needs a base setting.</p></div>
+					<div><h3>Framework quickstarts</h3><p>Select your framework to see the one-line setup.</p></div>
 				</div>
 				<div class="quickstart-grid">
 					for _, item := range data.Access.Quickstarts {
-						<article class="quickstart">
+						<button class="quickstart" type="button" :class={ "selectedFramework === '" + item.Key + "' ? 'is-selected' : ''" } @click={ "selectedFramework = '" + item.Key + "'" }>
 							<div class="quickstart-title">
 								<strong>{ item.Name }</strong>
 								if item.NoConfig {
@@ -526,13 +675,29 @@ templ projectDetailBody(data ProjectDetailData) {
 								}
 							</div>
 							<p>{ item.Description }</p>
-							<div class="quickstart-snippet">
-								<code>{ item.Snippet }</code>
-								<button class="table-action" type="button" @click="navigator.clipboard.writeText($el.previousElementSibling.textContent); copied = 'done'">Copy</button>
-							</div>
-						</article>
+							<span class="quickstart-action">View setup →</span>
+						</button>
 					}
 				</div>
+			</div>
+			<div class="quickstart-instructions" x-cloak x-show="selectedFramework !== ''">
+				for _, item := range data.Access.Quickstarts {
+					<div class="quickstart-instruction" x-show={ "selectedFramework === '" + item.Key + "'" }>
+						<div class="quickstart-instruction-head">
+						<div><strong>{ item.Name }</strong><p>{ item.Description }</p><span class="quickstart-file">Edit <code>{ item.File }</code></span></div>
+							<button class="table-action" type="button" @click="navigator.clipboard.writeText($el.closest('.quickstart-instruction').querySelector('.quickstart-code').textContent); copied = true">Copy setup</button>
+						</div>
+						<pre class="quickstart-code"><code>{ item.Snippet }</code></pre>
+					</div>
+				}
+			</div>
+			<div class="ai-help">
+				<div>
+					<strong>Not sure what to do?</strong>
+					<p>Paste this prompt into your AI coding agent and it will guide you through the smallest framework-specific change.</p>
+				</div>
+				<textarea class="ai-prompt" readonly x-ref="aiPrompt">{ data.Access.AIPrompt }</textarea>
+				<button class="button secondary" type="button" @click="navigator.clipboard.writeText($refs.aiPrompt.value); copied = true">Copy prompt</button>
 			</div>
 			<p class="access-fallback"><strong>Navigation broken under Proxied?</strong> Use Direct mode from Edit, or open the direct URL above without changing your project.</p>
 		</div>

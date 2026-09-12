@@ -140,6 +140,71 @@
   padding: 20px 22px;
 }
 
+.runtime-control {
+  display: grid;
+  gap: 18px;
+}
+
+.runtime-control-row,
+.runtime-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.runtime-control-row p,
+.runtime-file span,
+.runtime-error {
+  margin: 4px 0 0;
+  color: #536274;
+  font-size: 0.8125rem;
+}
+
+.runtime-file {
+  justify-content: flex-start;
+  padding-top: 14px;
+  border-top: 1px solid #dbe3ed;
+}
+
+.runtime-file span {
+  margin: 0;
+  font-weight: 700;
+  color: #172b4d;
+}
+
+.runtime-configure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.runtime-configure input {
+  width: 180px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #bdc9d8;
+  border-radius: 6px;
+  color: #182536;
+  font: 0.8125rem ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.runtime-configure input:focus-visible {
+  outline: 2px solid #003da5;
+  outline-offset: 2px;
+}
+
+.runtime-alert {
+  padding: 11px 13px;
+  border: 1px solid #e6b86b;
+  border-radius: 7px;
+  background: #fff5dd;
+  color: #7b4300;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .access-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -198,38 +263,120 @@
 
 .quickstart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
 .quickstart {
+  appearance: none;
+  text-align: left;
   padding: 13px;
   border: 1px solid #dbe3ed;
   border-radius: 7px;
   background: #fff;
+  color: #182536;
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out;
+}
+
+.quickstart:hover,
+.quickstart:focus-visible,
+.quickstart.is-selected {
+  border-color: #003da5;
+  background: #f4f8ff;
+}
+
+.quickstart:focus-visible {
+  outline: 2px solid #003da5;
+  outline-offset: 2px;
 }
 
 .quickstart p {
   margin: 8px 0 10px;
 }
 
-.quickstart-snippet {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid #dbe3ed;
-  border-radius: 6px;
-  background: #f5f8fb;
+.quickstart-action {
+  color: #003da5;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
-.quickstart-snippet code {
-  min-width: 0;
-  flex: 1;
+.quickstart-instructions {
+  margin-top: 14px;
+}
+
+.quickstart-instruction {
+  padding: 14px;
+  border: 1px solid #b8c9e2;
+  border-radius: 7px;
+  background: #f4f8ff;
+}
+
+.quickstart-instruction-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.quickstart-instruction-head p {
+  margin: 4px 0 0;
+  color: #536274;
+  font-size: 0.8125rem;
+}
+
+.quickstart-file {
+  display: block;
+  margin-top: 6px;
+  color: #536274;
+  font-size: 0.75rem;
+}
+
+.quickstart-code {
+  display: block;
+  padding: 10px 12px;
   overflow-x: auto;
+  border: 1px solid #dbe3ed;
+  border-radius: 6px;
+  background: #fff;
   color: #182536;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   white-space: nowrap;
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+.ai-help {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 1.5fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #dbe3ed;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.ai-help p {
+  max-width: 48ch;
+  margin: 4px 0 0;
+  color: #536274;
+  font-size: 0.8125rem;
+}
+
+.ai-prompt {
+  min-height: 128px;
+  width: 100%;
+  resize: vertical;
+  padding: 9px 10px;
+  border: 1px solid #c1ccdb;
+  border-radius: 6px;
+  background: #fff;
+  color: #182536;
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 
 .access-fallback {
@@ -242,6 +389,21 @@
 
 @media (max-width: 720px) {
   .access-options {
+    grid-template-columns: 1fr;
+  }
+
+  .quickstart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ai-help {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 440px) {
+  .quickstart-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -476,6 +638,16 @@
 .badge.neutral {
   background: #eef2f6;
   color: #607086;
+}
+
+.badge.info {
+  background: #e8f1fd;
+  color: #003da5;
+}
+
+.badge.accent {
+  background: #f1eafd;
+  color: #714bce;
 }
 
 .state-pill {

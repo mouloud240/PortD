@@ -9,11 +9,13 @@ import (
 	"strings"
 	"time"
 
+	activitysvc "github.com/portd/internal/activity"
 	"github.com/portd/internal/auth"
 	db "github.com/portd/internal/db/generated"
 	"github.com/portd/internal/httperr"
 	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
+	"github.com/portd/internal/runtime"
 	"github.com/portd/views/pages"
 )
 
@@ -145,6 +147,12 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		}
 	}
 	http.Redirect(w, r, "/projects/"+created.Project.Slug, http.StatusSeeOther)
+	h.activity.Record(r.Context(), activitysvc.Event{
+		EventType:  activitysvc.ProjectCreate,
+		EntityType: "project",
+		EntityID:   created.Project.Slug,
+		Detail:     created.Project.Name,
+	})
 	return nil
 }
 
@@ -159,6 +167,9 @@ func (h *ProjectsHandler) DetailPage(w http.ResponseWriter, r *http.Request) err
 	data, err := h.projectDetailData(r.Context(), detail, r.URL.Query().Get("port_error"), r.URL.Query().Get("health_error"))
 	if err != nil {
 		return err
+	}
+	if message := r.URL.Query().Get("runtime_error"); message != "" {
+		data.RuntimeError = message
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.ProjectDetailPage(data))
 }
@@ -245,6 +256,12 @@ func (h *ProjectsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) err
 	}
 	form.IsLive = updated.Project.IsLive == 1
 	http.Redirect(w, r, "/projects/"+updated.Project.Slug, http.StatusSeeOther)
+	h.activity.Record(r.Context(), activitysvc.Event{
+		EventType:  activitysvc.ProjectUpdate,
+		EntityType: "project",
+		EntityID:   updated.Project.Slug,
+		Detail:     updated.Project.Name,
+	})
 	return nil
 }
 
@@ -258,6 +275,12 @@ func (h *ProjectsHandler) ArchivePost(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 	http.Redirect(w, r, "/projects/"+archived.Project.Slug, http.StatusSeeOther)
+	h.activity.Record(r.Context(), activitysvc.Event{
+		EventType:  activitysvc.ProjectArchive,
+		EntityType: "project",
+		EntityID:   archived.Project.Slug,
+		Detail:     archived.Project.Name,
+	})
 	return nil
 }
 
@@ -402,6 +425,24 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 	if shouldRun {
 		runtimeIntent = "Should run"
 	}
+	runtimeStatus := h.runtime.Status(detail.Project.ID)
+	runtimeFile := runtimeStatus.File
+	if runtimeFile == "" {
+		runtimeFile = detail.Project.StartupCommand
+	}
+	runtimeState := string(runtimeStatus.State)
+	if runtimeState == "" {
+		runtimeState = string(runtime.StateStopped)
+	}
+	runtimeError := ""
+	if runtimeStatus.Error != "" {
+		runtimeError = runtimeStatus.Error
+	}
+	if runtimeState == string(runtime.StateRunning) {
+		statusLabel, statusClass = "Running", "running"
+	} else if runtimeState == string(runtime.StateFailed) {
+		statusLabel, statusClass = "Failed", "failed"
+	}
 	ports := h.assignedPorts(ctx, detail.Project.ID)
 	mainPort := "—"
 	for _, item := range ports {
@@ -436,6 +477,10 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 		LifecycleClass:  pages.LifecycleClass(detail.Project.LifecycleStatus),
 		LifecyclePhase:  pages.LifecyclePhase(detail.Project.LifecycleStatus),
 		RuntimeIntent:   runtimeIntent,
+		RuntimeState:    runtimeState,
+		RuntimePID:      strconv.Itoa(runtimeStatus.PID),
+		RuntimeFile:     runtimeFile,
+		RuntimeError:    runtimeError,
 		ShouldRun:       shouldRun,
 		IsLive:          isLive,
 		StatusLabel:     statusLabel,
@@ -470,12 +515,24 @@ func (h *ProjectsHandler) projectAccess(ctx context.Context, project db.Project)
 		ProxiedURL:      proxied,
 		ProxiedURLLabel: urlLabel(proxied),
 		Quickstarts:     quickstarts(proxied),
+		AIPrompt:        aiPrompt(proxied, direct),
 	}
+
 	access.URL, access.URLLabel = access.ProxiedURL, access.ProxiedURLLabel
 	if project.AccessMode == projectsvc.AccessModeDirect {
 		access.URL, access.URLLabel = access.DirectURL, access.DirectURLLabel
 	}
 	return access
+}
+
+func aiPrompt(proxied, direct string) string {
+	return "PortD is an internal project hub that gives existing applications two ways to open:\n" +
+		"- Proxied mode: " + proxied + " — a clean shared URL under PortD, which may require a framework base path.\n" +
+		"- Direct mode: " + direct + " — the app's server and main port, with no PortD prefix and no app changes required.\n\n" +
+		"My application is currently being prepared for Proxied mode. Identify the framework and configure its base path so " +
+		"client-side routing, root-relative assets, redirects, forms, API calls, and SSR-generated links work under the Proxied URL. " +
+		"Do not rewrite unrelated code or break Direct mode. Tell me exactly which file to edit, explain why, and provide the smallest safe patch. " +
+		"If this application cannot reliably support a path prefix, say so and recommend Direct mode instead."
 }
 
 func accessModeLabel(mode string) string {
@@ -491,14 +548,14 @@ func quickstarts(proxied string) []pages.QuickstartItem {
 		base = strings.TrimRight(parsed.Path, "/")
 	}
 	return []pages.QuickstartItem{
-		{Name: "React Router", Description: "Pass the project path as your router basename.", Snippet: `<BrowserRouter basename="` + base + `">`},
-		{Name: "Vite", Description: "Set the base so bundled assets resolve under the project path.", Snippet: "base: '" + base + "/'"},
-		{Name: "Next.js", Description: "Set basePath once for links and assets.", Snippet: "basePath: '" + base + "'"},
-		{Name: "Vue Router", Description: "Pass the project path to history mode.", Snippet: "createWebHistory('" + base + "/')"},
-		{Name: "Nuxt", Description: "Set baseURL for routing and assets.", Snippet: "app: { baseURL: '" + base + "/' }"},
-		{Name: "Angular", Description: "Set the document base for router and asset URLs.", Snippet: `<base href="` + base + `/">`},
-		{Name: "SvelteKit", Description: "Set the adapter base path.", Snippet: "paths: { base: '" + base + "' }"},
-		{Name: "Hash routing", Description: "Hash routes already work under a path prefix.", Snippet: "No configuration needed", NoConfig: true},
+		{Key: "react-router", Name: "React Router", File: "src/main.jsx or src/main.tsx", Description: "Pass the project path as your router basename.", Snippet: `<BrowserRouter basename="` + base + `">`},
+		{Key: "vite", Name: "Vite", File: "vite.config.js or vite.config.ts", Description: "Set the base so bundled assets resolve under the project path.", Snippet: "base: '" + base + "/'"},
+		{Key: "next", Name: "Next.js", File: "next.config.js or next.config.mjs", Description: "Set basePath once for links and assets.", Snippet: "basePath: '" + base + "'"},
+		{Key: "vue-router", Name: "Vue Router", File: "src/router/index.js or src/router/index.ts", Description: "Pass the project path to history mode.", Snippet: "createWebHistory('" + base + "/')"},
+		{Key: "nuxt", Name: "Nuxt", File: "nuxt.config.ts or nuxt.config.js", Description: "Set baseURL for routing and assets.", Snippet: "app: { baseURL: '" + base + "/' }"},
+		{Key: "angular", Name: "Angular", File: "src/index.html", Description: "Set the document base for router and asset URLs.", Snippet: `<base href="` + base + `/">`},
+		{Key: "sveltekit", Name: "SvelteKit", File: "svelte.config.js", Description: "Set the adapter base path.", Snippet: "paths: { base: '" + base + "' }"},
+		{Key: "hash-routing", Name: "Hash routing", File: "No file change", Description: "Hash routes already work under a path prefix.", Snippet: "No configuration needed", NoConfig: true},
 	}
 }
 

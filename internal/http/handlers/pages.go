@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	activitysvc "github.com/portd/internal/activity"
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/httperr"
 	internsvc "github.com/portd/internal/interns"
@@ -15,10 +16,11 @@ import (
 
 // Handlers contains the transport handlers that compose multiple services.
 type Handlers struct {
-	auth    *auth.Service
-	intern  *internsvc.Service
-	project *projectsvc.Service
-	port    *portsvc.Service
+	auth     *auth.Service
+	intern   *internsvc.Service
+	project  *projectsvc.Service
+	port     *portsvc.Service
+	activity *activitysvc.Service
 }
 
 func New(
@@ -26,12 +28,14 @@ func New(
 	internService *internsvc.Service,
 	projectService *projectsvc.Service,
 	portService *portsvc.Service,
+	activityService *activitysvc.Service,
 ) *Handlers {
 	return &Handlers{
-		auth:    authService,
-		intern:  internService,
-		project: projectService,
-		port:    portService,
+		auth:     authService,
+		intern:   internService,
+		project:  projectService,
+		port:     portService,
+		activity: activityService,
 	}
 }
 
@@ -56,7 +60,8 @@ func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) error {
 		AssignedPorts:  assigned,
 		UnknownPorts:   unknown,
 		ActiveInterns:  len(interns),
-		Projects:       NewProjectsHandler(h.project).ProjectListItems(ctx, overview.Recent),
+		Projects:       NewProjectsHandler(h.project, h.activity).ProjectListItems(ctx, overview.Recent),
+		Recent:         h.recentActivity(r),
 	}))
 }
 
@@ -105,11 +110,13 @@ func (h *Handlers) ProfileUpdate(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+	h.activity.Record(r.Context(), activitysvc.Event{
+		EventType:  activitysvc.ProfileUpdate,
+		EntityType: "intern",
+		EntityID:   current.ID,
+		Detail:     data.FullName,
+	})
 	return nil
-}
-
-func (h *Handlers) Activity(w http.ResponseWriter, r *http.Request) error {
-	return httperr.Render(w, r, http.StatusOK, pages.PlaceholderPage("Activity", r.URL.Path))
 }
 
 func (h *Handlers) Healthz(w http.ResponseWriter, _ *http.Request) error {

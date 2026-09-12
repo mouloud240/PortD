@@ -11,9 +11,9 @@ Project hub for Algérie Télécom internships. Authenticated admins and interns
 
 - **Project registry** — create, assign, and track projects with slugs, ports, and lifecycle state.
 - **Two access modes** — Direct mode (`server:<main-port>`) needs no proxy or app changes; Proxied mode (`base_url/<project-slug>`) is available for apps configured for a path base.
-- **Startup recovery** — on launch, PortD runs `start.sh`/`start.bat` for projects marked `should_run` via a bounded worker pool.
+- **Runtime controls** — project owners and admins can start or stop a project from Project Detail; PortD selects `start.sh` on Unix and `start.bat` on Windows, and flags missing files before launch.
 - **Port discovery** — maps listening host ports to registered projects and caches observations.
-- **Activity log** — every creation, lifecycle change, startup attempt, and route update is recorded.
+- **Activity log** — creations, lifecycle changes, runtime actions, ports, healthchecks, intern and session events are recorded asynchronously; admins review them at `/activity`.
 - **Role-based access** — admins manage everything; interns view and manage only their assigned projects.
 
 ## Stack

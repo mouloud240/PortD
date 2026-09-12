@@ -43,8 +43,12 @@ func (s FileScaffolder) Create(ctx context.Context, scaffold Scaffold) error {
 	if err := writeIfAbsent(startup, "#!/bin/sh\nset -eu\n", 0o755); err != nil {
 		return err
 	}
+	windowsStartup := filepath.Join(scaffold.Directory, "start.bat")
+	if err := writeIfAbsent(windowsStartup, "@echo off\r\n", 0o755); err != nil {
+		return err
+	}
 	readme := filepath.Join(scaffold.Directory, "README.md")
-	content := fmt.Sprintf("# %s\n\n- URL: %s\n- Bind: localhost:%d\n- Startup: `%s`\n", scaffold.Slug, scaffold.PublicURL, scaffold.MainPort, scaffold.StartupCommand)
+	content := fmt.Sprintf("# %s\n\n- URL: %s\n- Bind: localhost:%d\n- Unix startup: `start.sh`\n- Windows startup: `start.bat`\n- Configured startup: `%s`\n", scaffold.Slug, scaffold.PublicURL, scaffold.MainPort, scaffold.StartupCommand)
 	return writeIfAbsent(readme, content, 0o644)
 }
 

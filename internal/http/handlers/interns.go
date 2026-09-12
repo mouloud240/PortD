@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	activitysvc "github.com/portd/internal/activity"
 	"github.com/portd/internal/httperr"
 	internsvc "github.com/portd/internal/interns"
 	"github.com/portd/views/pages"
@@ -68,6 +69,12 @@ func (h *InternsHandler) CreatePost(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 	http.Redirect(w, r, "/interns/"+intern.ID, http.StatusSeeOther)
+	h.activity.Record(r.Context(), activitysvc.Event{
+		EventType:  activitysvc.InternCreate,
+		EntityType: "intern",
+		EntityID:   intern.ID,
+		Detail:     intern.FullName,
+	})
 	return nil
 }
 
@@ -122,5 +129,11 @@ func (h *InternsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 	http.Redirect(w, r, "/interns/"+intern.ID, http.StatusSeeOther)
+	h.activity.Record(r.Context(), activitysvc.Event{
+		EventType:  activitysvc.InternUpdate,
+		EntityType: "intern",
+		EntityID:   intern.ID,
+		Detail:     intern.FullName,
+	})
 	return nil
 }

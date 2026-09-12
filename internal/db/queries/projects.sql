@@ -30,6 +30,19 @@ SET name = ?,
 WHERE id = ?
 RETURNING *;
 
+-- name: SetProjectStartupCommand :exec
+UPDATE projects
+SET startup_command = ?,
+    updated_at = ?
+WHERE slug = ?;
+
+-- name: SetProjectRuntimeIntent :exec
+UPDATE projects
+SET should_run = ?,
+    lifecycle_status = ?,
+    updated_at = ?
+WHERE slug = ?;
+
 -- name: UpdateProjectHealthcheckState :one
 UPDATE projects
 SET is_live = ?,

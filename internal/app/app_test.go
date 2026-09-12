@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	activitysvc "github.com/portd/internal/activity"
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/db/generated"
 	internsvc "github.com/portd/internal/interns"
@@ -62,6 +64,101 @@ func TestLoginPage(t *testing.T) {
 	}
 }
 
+func TestLoginRecordsAuditAndActivityPageGated(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	initDB(t, database)
+	queries := db.New(database)
+	authService := auth.NewService(queries, "admin", "admin-password")
+	activityService := testActivity(t, queries)
+	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), activityService)
+	ctx := context.Background()
+
+	login := func(username, password string) *httptest.ResponseRecorder {
+		form := url.Values{"username": {username}, "password": {password}}
+		request := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	if response := login("admin", "admin-password"); response.Code != http.StatusSeeOther {
+		t.Fatalf("login status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	if response := login("admin", "wrong-password"); response.Code != http.StatusUnauthorized {
+		t.Fatalf("bad login status = %d, want %d", response.Code, http.StatusUnauthorized)
+	}
+
+	var rows []db.ActivityLog
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var err error
+		rows, err = activityService.List(ctx, activitysvc.Filter{EventType: activitysvc.AuthLogin})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) == 2 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("auth.login rows = %d, want 2", len(rows))
+	}
+	seen := map[string]db.ActivityLog{}
+	for _, row := range rows {
+		seen[row.Outcome] = row
+	}
+	success, ok := seen[activitysvc.OutcomeSuccess]
+	if !ok {
+		t.Fatalf("no successful auth.login row: %+v", rows)
+	}
+	if success.ActorInternID.Valid {
+		t.Errorf("admin login actor = %q, want NULL", success.ActorInternID.String)
+	}
+	if !strings.Contains(success.Detail, "admin") {
+		t.Errorf("login detail = %q, want username", success.Detail)
+	}
+	if _, ok := seen[activitysvc.OutcomeFailure]; !ok {
+		t.Errorf("no failed auth.login row: %+v", rows)
+	}
+
+	adminSession, err := authService.Login(ctx, "admin", "admin-password")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	activity := func(token string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, "/activity", nil)
+		if token != "" {
+			request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: token})
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	if response := activity(adminSession.Token); response.Code != http.StatusOK {
+		t.Fatalf("admin activity status = %d, want %d", response.Code, http.StatusOK)
+	} else if body := response.Body.String(); !strings.Contains(body, "Audit trail") {
+		t.Errorf("activity page should describe the audit trail")
+	}
+	if response := activity(""); response.Code != http.StatusFound && response.Code != http.StatusSeeOther && response.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous activity status = %d, want redirect or 401", response.Code)
+	}
+
+	internService := internsvc.NewService(queries)
+	if _, err := internService.Create(ctx, "Audit Intern", "audit@example.com", "audit", "secret-123"); err != nil {
+		t.Fatalf("create intern: %v", err)
+	}
+	internSession, err := authService.Login(ctx, "audit", "secret-123")
+	if err != nil {
+		t.Fatalf("intern login: %v", err)
+	}
+	if response := activity(internSession.Token); response.Code != http.StatusForbidden {
+		t.Fatalf("intern activity status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+}
+
 func TestPlaceholderPage(t *testing.T) {
 	t.Parallel()
 
@@ -78,7 +175,7 @@ func TestPlaceholderPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -108,7 +205,7 @@ func TestInternsListPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -138,7 +235,7 @@ func TestInternNewPage(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
 	response := httptest.NewRecorder()
 
-	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries)).ServeHTTP(response, request)
+	NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries)).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -169,7 +266,7 @@ func TestInternCreateValidationConflictAndNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries))
+	handler := NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries))
 	post := func(path string, form url.Values) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -261,7 +358,15 @@ func testDB(t *testing.T) *sql.DB {
 func testHandler(t *testing.T, database *sql.DB, authService *auth.Service) http.Handler {
 	t.Helper()
 	queries := db.New(database)
-	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries))
+	return NewHandler(authService, internsvc.NewService(queries), projectsvc.NewService(database, queries, "https://portd.example.test"), testPorts(queries), testActivity(t, queries))
+}
+
+func testActivity(t *testing.T, queries *db.Queries) *activitysvc.Service {
+	t.Helper()
+	service := activitysvc.NewService(queries)
+	service.Start()
+	t.Cleanup(service.Close)
+	return service
 }
 
 func TestInternSeesAndManagesOwnProjects(t *testing.T) {
@@ -273,7 +378,7 @@ func TestInternSeesAndManagesOwnProjects(t *testing.T) {
 	authService := auth.NewService(queries, "admin", "admin-password")
 	internService := internsvc.NewService(queries)
 	projectService := projectsvc.NewService(database, queries, "https://portd.example.test")
-	handler := NewHandler(authService, internService, projectService, testPorts(queries))
+	handler := NewHandler(authService, internService, projectService, testPorts(queries), testActivity(t, queries))
 	ctx := context.Background()
 
 	mkIntern := func(name, identifier string) {
