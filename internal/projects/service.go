@@ -515,7 +515,8 @@ func (s *Service) RemoveHealthcheck(ctx context.Context, slug, id string) error 
 }
 
 func validHealthEndpoint(endpoint string) bool {
-	return strings.HasPrefix(endpoint, "/") || strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://")
+	parsed, err := url.ParseRequestURI(endpoint)
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
 func validateProjectFields(name, slug, lifecycle string, internIDs []string) error {

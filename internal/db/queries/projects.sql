@@ -30,6 +30,14 @@ SET name = ?,
 WHERE id = ?
 RETURNING *;
 
+-- name: UpdateProjectHealthcheckState :one
+UPDATE projects
+SET is_live = ?,
+    lifecycle_status = ?,
+    updated_at = ?
+WHERE id = ?
+RETURNING *;
+
 -- name: InsertProjectIntern :exec
 INSERT INTO project_interns (project_id, intern_id, created_at)
 VALUES (?, ?, ?);

@@ -56,6 +56,39 @@ func (q *Queries) DeleteProjectHealthcheck(ctx context.Context, arg DeleteProjec
 	return err
 }
 
+const listAllProjectHealthchecks = `-- name: ListAllProjectHealthchecks :many
+SELECT id, project_id, endpoint, expected_status, created_at FROM project_healthchecks ORDER BY project_id, created_at, id
+`
+
+func (q *Queries) ListAllProjectHealthchecks(ctx context.Context) ([]ProjectHealthcheck, error) {
+	rows, err := q.db.QueryContext(ctx, listAllProjectHealthchecks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectHealthcheck
+	for rows.Next() {
+		var i ProjectHealthcheck
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Endpoint,
+			&i.ExpectedStatus,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectHealthchecks = `-- name: ListProjectHealthchecks :many
 SELECT id, project_id, endpoint, expected_status, created_at FROM project_healthchecks WHERE project_id = ? ORDER BY created_at, id
 `

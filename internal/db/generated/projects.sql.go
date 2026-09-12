@@ -413,3 +413,45 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 	)
 	return i, err
 }
+
+const updateProjectHealthcheckState = `-- name: UpdateProjectHealthcheckState :one
+UPDATE projects
+SET is_live = ?,
+    lifecycle_status = ?,
+    updated_at = ?
+WHERE id = ?
+RETURNING id, name, slug, description, directory, startup_command, should_run, is_live, lifecycle_status, route_sync_status, created_at, updated_at, access_mode
+`
+
+type UpdateProjectHealthcheckStateParams struct {
+	IsLive          int64  `json:"is_live"`
+	LifecycleStatus string `json:"lifecycle_status"`
+	UpdatedAt       string `json:"updated_at"`
+	ID              string `json:"id"`
+}
+
+func (q *Queries) UpdateProjectHealthcheckState(ctx context.Context, arg UpdateProjectHealthcheckStateParams) (Project, error) {
+	row := q.db.QueryRowContext(ctx, updateProjectHealthcheckState,
+		arg.IsLive,
+		arg.LifecycleStatus,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.Directory,
+		&i.StartupCommand,
+		&i.ShouldRun,
+		&i.IsLive,
+		&i.LifecycleStatus,
+		&i.RouteSyncStatus,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AccessMode,
+	)
+	return i, err
+}

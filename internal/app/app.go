@@ -4,12 +4,15 @@ package app
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/portd/internal/auth"
 	"github.com/portd/internal/config"
 	"github.com/portd/internal/db/generated"
+	"github.com/portd/internal/healthcheck"
 	apphttp "github.com/portd/internal/http"
 	internsvc "github.com/portd/internal/interns"
 	portsvc "github.com/portd/internal/ports"
@@ -22,6 +25,9 @@ type App struct {
 	database *sql.DB
 	handler  http.Handler
 	server   *http.Server
+	health   *healthcheck.Poller
+	cancel   context.CancelFunc
+	wait     sync.WaitGroup
 }
 
 // New constructs the database, services, and HTTP router for PortD.
@@ -41,16 +47,34 @@ func New(cfg config.Config) (*App, error) {
 	projectService := projectsvc.NewService(database, queries, cfg.BaseURL)
 	portService := portsvc.NewService(queries, portsvc.NewGopsutilScanner())
 	router := apphttp.NewRouter(authService, internService, projectService, portService)
-
-	return &App{
+	healthPoller, err := healthcheck.NewPoller(queries, nil, healthcheck.WithErrorHandler(func(err error) {
+		slog.Error("healthcheck cycle failed", "error", err)
+	}))
+	if err != nil {
+		_ = database.Close()
+		return nil, err
+	}
+	healthContext, cancel := context.WithCancel(context.Background())
+	application := &App{
 		database: database,
 		handler:  router,
+		health:   healthPoller,
+		cancel:   cancel,
 		server: &http.Server{
 			Addr:              cfg.HTTPAddr,
 			Handler:           router,
 			ReadHeaderTimeout: 5 * time.Second,
 		},
-	}, nil
+	}
+	// Start healthchecks with the application so polling begins before the
+	// HTTP server starts accepting requests.
+	application.wait.Add(1)
+	go func() {
+		defer application.wait.Done()
+		_ = healthPoller.Run(healthContext)
+	}()
+
+	return application, nil
 }
 
 // Handler returns the application's HTTP handler.
@@ -66,11 +90,18 @@ func (a *App) ListenAndServe(addr string) error {
 
 // Shutdown gracefully stops the HTTP server.
 func (a *App) Shutdown(ctx context.Context) error {
-	return a.server.Shutdown(ctx)
+	a.cancel()
+	err := a.server.Shutdown(ctx)
+	a.wait.Wait()
+	return err
 }
 
 // Close releases process-scoped resources.
 func (a *App) Close() error {
+	if a.cancel != nil {
+		a.cancel()
+		a.wait.Wait()
+	}
 	return a.database.Close()
 }
 

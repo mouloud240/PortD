@@ -147,14 +147,17 @@ func TestHealthcheckAddRemove(t *testing.T) {
 	if _, err := service.AddHealthcheck(ctx, created.Project.Slug, "notaurl", 200); err != ErrInvalid {
 		t.Fatalf("bad endpoint error = %v, want %v", err, ErrInvalid)
 	}
-	if _, err := service.AddHealthcheck(ctx, created.Project.Slug, "/health", 99); err != ErrInvalid {
+	if _, err := service.AddHealthcheck(ctx, created.Project.Slug, "http://example.test/health", 99); err != ErrInvalid {
 		t.Fatalf("bad status error = %v, want %v", err, ErrInvalid)
 	}
-	check, err := service.AddHealthcheck(ctx, created.Project.Slug, "/health", 0)
+	if _, err := service.AddHealthcheck(ctx, created.Project.Slug, "/health", 200); err != ErrInvalid {
+		t.Fatalf("relative endpoint error = %v, want %v", err, ErrInvalid)
+	}
+	check, err := service.AddHealthcheck(ctx, created.Project.Slug, "https://example.test/health", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if check.ExpectedStatus != 200 || check.Endpoint != "/health" {
+	if check.ExpectedStatus != 200 || check.Endpoint != "https://example.test/health" {
 		t.Fatalf("healthcheck = %+v", check)
 	}
 	rows, err := queries.ListProjectHealthchecks(ctx, created.Project.ID)
