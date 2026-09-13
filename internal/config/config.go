@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -27,6 +28,10 @@ type Config struct {
 
 // Load returns configuration from environment variables with safe defaults.
 func Load() Config {
+	err:=godotenv.Load(".env")
+	if err!=nil{
+		panic(err.Error())
+	}
 	address := os.Getenv("PORTD_HTTP_ADDR")
 	if address == "" {
 		address = defaultHTTPAddr
