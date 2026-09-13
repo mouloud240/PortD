@@ -53,6 +53,7 @@ func NewRouter(
 	mux.Handle("GET /projects", httperr.Handle(requireSession(projectHandlers.ListPage)))
 	mux.Handle("GET /projects/new", httperr.Handle(requireSession(projectHandlers.NewPage)))
 	mux.Handle("POST /projects", httperr.Handle(requireSession(projectHandlers.CreatePost)))
+	mux.Handle("GET /projects/detect", httperr.Handle(requireSession(projectHandlers.DetectPage)))
 	mux.Handle("POST /projects/detect", httperr.Handle(requireSession(projectHandlers.DetectPost)))
 	mux.Handle("GET /projects/{slug}", httperr.Handle(requireProjectMember(projectHandlers.DetailPage)))
 	mux.Handle("GET /projects/{slug}/edit", httperr.Handle(requireProjectMember(projectHandlers.EditPage)))

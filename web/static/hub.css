@@ -1152,3 +1152,127 @@ small.warning {
     transition: none !important;
   }
 }
+
+/* Detect-from-disk selection modal */
+.detect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  overflow-y: auto;
+}
+
+.detect-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(23 43 77 / 0.45);
+}
+
+.detect-dialog {
+  position: relative;
+  width: min(100%, 560px);
+  margin: 0;
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+}
+
+.detect-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 15px 19px;
+  border-bottom: 1px solid #dbe3ed;
+}
+
+.detect-toolbar input[type="search"] {
+  flex: 1;
+  min-width: 180px;
+  min-height: 35px;
+  padding: 7px 9px;
+  border: 1px solid #b8c5d5;
+  border-radius: 4px;
+  background: #fff;
+  color: #182536;
+  font-size: 0.8125rem;
+}
+
+.detect-toolbar input[type="search"]:focus {
+  border-color: #003da5;
+  box-shadow: 0 0 0 3px rgb(0 62 165 / 0.12);
+  outline: none;
+}
+
+.detect-list {
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+  overflow-y: auto;
+  max-height: 320px;
+}
+
+.detect-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 19px;
+}
+
+.detect-row:hover {
+  background: #f8fbfd;
+}
+
+.detect-row label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.detect-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  accent-color: #003da5;
+}
+
+.detect-name {
+  color: #172b4d;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.detect-row.is-existing {
+  background: #f4f6f9;
+  color: #8a97a8;
+}
+
+.detect-row.is-existing .detect-name {
+  color: #8a97a8;
+  font-weight: 600;
+}
+
+.detect-row.is-existing label {
+  cursor: not-allowed;
+}
+
+.detect-empty {
+  padding: 32px 19px;
+  text-align: center;
+  color: #536274;
+  font-size: 0.8125rem;
+}
+
+.detect-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 15px 19px;
+  border-top: 1px solid #dbe3ed;
+}

@@ -21,18 +21,7 @@ import (
 )
 
 func (h *ProjectsHandler) ListPage(w http.ResponseWriter, r *http.Request) error {
-	search := r.URL.Query().Get("q")
-	lifecycle := r.URL.Query().Get("lifecycle_status")
-	liveParam := r.URL.Query().Get("is_live")
-	isLive := int64(-1)
-	switch liveParam {
-	case "true":
-		isLive = 1
-	case "false":
-		isLive = 0
-	default:
-		liveParam = ""
-	}
+	search, lifecycle, liveParam, isLive := listFilters(r)
 	principal, _ := auth.PrincipalFrom(r.Context())
 	if !principal.IsAdmin() && principal.InternID == "" {
 		return httperr.Forbidden("Sign in as an intern or administrator.", nil)
@@ -51,7 +40,56 @@ func (h *ProjectsHandler) ListPage(w http.ResponseWriter, r *http.Request) error
 		lifecycle,
 		liveParam,
 		h.ProjectListItems(r.Context(), items),
+		nil,
+		false,
 	))
+}
+
+// DetectPage scans disk and re-renders the projects page with the
+// selection modal open. Nothing is registered until the modal posts back.
+func (h *ProjectsHandler) DetectPage(w http.ResponseWriter, r *http.Request) error {
+	search, lifecycle, liveParam, isLive := listFilters(r)
+	principal, _ := auth.PrincipalFrom(r.Context())
+	if !principal.IsAdmin() && principal.InternID == "" {
+		return httperr.Forbidden("Sign in as an intern or administrator.", nil)
+	}
+	items, err := h.scopedList(r, search, lifecycle, isLive)
+	if err != nil {
+		if errors.Is(err, projectsvc.ErrInvalid) {
+			return httperr.BadRequest("Invalid project filter.", err)
+		}
+		return err
+	}
+	candidates, err := h.service.Scan(r.Context())
+	if err != nil {
+		return err
+	}
+	return httperr.Render(w, r, http.StatusOK, pages.ProjectsPage(
+		"Projects",
+		"/projects",
+		search,
+		lifecycle,
+		liveParam,
+		h.ProjectListItems(r.Context(), items),
+		pages.DetectItems(candidates),
+		true,
+	))
+}
+
+func listFilters(r *http.Request) (search, lifecycle, liveParam string, isLive int64) {
+	search = r.URL.Query().Get("q")
+	lifecycle = r.URL.Query().Get("lifecycle_status")
+	liveParam = r.URL.Query().Get("is_live")
+	isLive = int64(-1)
+	switch liveParam {
+	case "true":
+		isLive = 1
+	case "false":
+		isLive = 0
+	default:
+		liveParam = ""
+	}
+	return search, lifecycle, liveParam, isLive
 }
 
 func (h *ProjectsHandler) scopedList(r *http.Request, search, lifecycle string, isLive int64) ([]projectsvc.ProjectWithInterns, error) {

@@ -59,7 +59,7 @@ func NewService(queries *db.Queries, adminUsername, adminPassword string) *Servi
 func (s *Service) SessionTTL() time.Duration { return s.sessionTTL }
 
 func (s *Service) Login(ctx context.Context, username, password string) (Session, error) {
-	if username == s.adminUsername && s.adminUsername != "" && subtle.ConstantTimeCompare([]byte(password), []byte(s.adminPassword)) == 1 {
+		if username == s.adminUsername && s.adminUsername != "" && subtle.ConstantTimeCompare([]byte(password), []byte(s.adminPassword)) == 1 {
 		return s.createSession(ctx, Principal{Role: "admin"})
 	}
 	if len(password) > 72 {

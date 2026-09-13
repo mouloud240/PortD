@@ -468,12 +468,17 @@ func (s *Service) writeReadme(ctx context.Context, project db.Project, accessMod
 	slog.Info("project readme written", "slug", project.Slug, "directory", project.Directory)
 }
 
-// Detect registers project directories missing from the registry and
-// returns their slugs. Folders that are hidden, not directories, have an
-// unusable name, or are already registered by slug or directory are
-// skipped. Detected projects get no interns and no ports; assign them
-// from the project page afterwards.
-func (s *Service) Detect(ctx context.Context) ([]string, error) {
+// DetectedCandidate is one disk folder plus whether it is already registered.
+type DetectedCandidate struct {
+	Name      string
+	Slug      string
+	Directory string
+	Exists    bool
+}
+
+// Scan lists usable disk folders without registering anything. Folders that
+// are hidden, not directories, or have an unusable name are skipped.
+func (s *Service) Scan(ctx context.Context) ([]DetectedCandidate, error) {
 	entries, err := os.ReadDir(s.projectsDir)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrScaffold, err)
@@ -488,8 +493,7 @@ func (s *Service) Detect(ctx context.Context) ([]string, error) {
 		slugs[item.Project.Slug] = struct{}{}
 		dirs[item.Project.Directory] = struct{}{}
 	}
-	now := time.Now().UTC().Format(time.RFC3339Nano)
-	var added []string
+	var out []DetectedCandidate
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
@@ -499,18 +503,48 @@ func (s *Service) Detect(ctx context.Context) ([]string, error) {
 			continue
 		}
 		directory := filepath.Join(s.projectsDir, entry.Name())
-		if _, ok := slugs[slug]; ok {
-			continue
+		_, bySlug := slugs[slug]
+		_, byDir := dirs[directory]
+		out = append(out, DetectedCandidate{
+			Name:      entry.Name(),
+			Slug:      slug,
+			Directory: directory,
+			Exists:    bySlug || byDir,
+		})
+	}
+	return out, nil
+}
+
+// Import registers the selected slugs from Scan and returns the added ones.
+// Already-registered or unknown slugs are skipped. Detected projects get no
+// interns and no ports; assign them from the project page afterwards.
+func (s *Service) Import(ctx context.Context, slugs []string) ([]string, error) {
+	wanted := make(map[string]struct{}, len(slugs))
+	for _, slug := range slugs {
+		slug = strings.TrimSpace(slug)
+		if slug != "" {
+			wanted[slug] = struct{}{}
 		}
-		if _, ok := dirs[directory]; ok {
+	}
+	if len(wanted) == 0 {
+		return nil, nil
+	}
+	candidates, err := s.Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	var added []string
+	for _, c := range candidates {
+		if _, ok := wanted[c.Slug]; !ok || c.Exists {
 			continue
 		}
 		_, err := s.queries.CreateProject(ctx, db.CreateProjectParams{
 			ID:              uuid.NewString(),
-			Name:            entry.Name(),
-			Slug:            slug,
+			Name:            c.Name,
+			Slug:            c.Slug,
 			Description:     "",
-			Directory:       directory,
+			Directory:       c.Directory,
 			StartupCommand:  "./start.sh",
 			ShouldRun:       0,
 			IsLive:          0,
@@ -526,12 +560,25 @@ func (s *Service) Detect(ctx context.Context) ([]string, error) {
 		if err != nil {
 			return added, err
 		}
-		slugs[slug] = struct{}{}
-		dirs[directory] = struct{}{}
-		added = append(added, slug)
-		slog.Info("project detected", "slug", slug, "directory", directory)
+		added = append(added, c.Slug)
+		slog.Info("project detected", "slug", c.Slug, "directory", c.Directory)
 	}
 	return added, nil
+}
+
+// Detect registers all unregistered disk folders (pre-selection behavior).
+func (s *Service) Detect(ctx context.Context) ([]string, error) {
+	candidates, err := s.Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var fresh []string
+	for _, c := range candidates {
+		if !c.Exists {
+			fresh = append(fresh, c.Slug)
+		}
+	}
+	return s.Import(ctx, fresh)
 }
 
 // MissingStartup reports whether a project directory holds neither

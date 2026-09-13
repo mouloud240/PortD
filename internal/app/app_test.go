@@ -165,8 +165,10 @@ func TestDetectPostRegistersDirectories(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "found-app"), 0o755); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"found-app", "skipped-app"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	database := testDB(t)
 	initDB(t, database)
@@ -179,9 +181,31 @@ func TestDetectPostRegistersDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
+	cookie := &http.Cookie{Name: auth.SessionCookieName, Value: session.Token}
 
-	request := httptest.NewRequest(http.MethodPost, "/projects/detect", nil)
-	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
+	// Scanning opens the selection modal without registering anything.
+	scan := httptest.NewRequest(http.MethodGet, "/projects/detect", nil)
+	scan.AddCookie(cookie)
+	scanResponse := httptest.NewRecorder()
+	handler.ServeHTTP(scanResponse, scan)
+	if scanResponse.Code != http.StatusOK {
+		t.Fatalf("scan status = %d, want %d", scanResponse.Code, http.StatusOK)
+	}
+	scanBody := scanResponse.Body.String()
+	for _, name := range []string{"found-app", "skipped-app", "Add selected"} {
+		if !strings.Contains(scanBody, name) {
+			t.Fatalf("scan page should contain %q", name)
+		}
+	}
+	if _, err := projectService.GetBySlug(ctx, "found-app"); err == nil {
+		t.Fatalf("scan should not register projects")
+	}
+
+	// Only selected projects are added.
+	form := url.Values{"slugs": {"found-app"}}
+	request := httptest.NewRequest(http.MethodPost, "/projects/detect", strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.AddCookie(cookie)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusSeeOther {
@@ -193,6 +217,9 @@ func TestDetectPostRegistersDirectories(t *testing.T) {
 	}
 	if len(got.Interns) != 0 || got.Project.LifecycleStatus != "draft" {
 		t.Fatalf("detected = %+v, want unassigned draft", got.Project)
+	}
+	if _, err := projectService.GetBySlug(ctx, "skipped-app"); err == nil {
+		t.Fatalf("unselected project should not be registered")
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/portd/internal/db/generated"
+	"github.com/portd/internal/projects"
 )
 
 // InternListItem is the finished row value the list template ranges over.
@@ -83,6 +84,28 @@ type ProjectListItem struct {
 	ProxiedURLLabel string
 	UpdatedAt       string
 	MissingStartup  bool
+}
+
+// DetectItem is one disk folder in the detect selection modal.
+type DetectItem struct {
+	Name      string
+	Slug      string
+	Directory string
+	Exists    bool
+}
+
+// DetectItems converts scan candidates once so templates stay logic-free.
+func DetectItems(candidates []projects.DetectedCandidate) []DetectItem {
+	items := make([]DetectItem, 0, len(candidates))
+	for _, c := range candidates {
+		items = append(items, DetectItem{
+			Name:      c.Name,
+			Slug:      c.Slug,
+			Directory: c.Directory,
+			Exists:    c.Exists,
+		})
+	}
+	return items
 }
 
 // InternOption is a selectable intern on the project form.

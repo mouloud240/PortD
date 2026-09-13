@@ -17,7 +17,10 @@ import (
 )
 
 func (h *ProjectsHandler) DetectPost(w http.ResponseWriter, r *http.Request) error {
-	added, err := h.service.Detect(r.Context())
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	added, err := h.service.Import(r.Context(), r.Form["slugs"])
 	if err != nil {
 		return err
 	}

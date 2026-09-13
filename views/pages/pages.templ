@@ -393,20 +393,18 @@ templ internsBody(search string, state string, items []InternListItem) {
 	</section>
 }
 
-templ ProjectsPage(title string, path string, search string, lifecycle string, live string, items []ProjectListItem) {
-	@layouts.Shell(title, path, projectsBody(search, lifecycle, live, items))
+templ ProjectsPage(title string, path string, search string, lifecycle string, live string, items []ProjectListItem, detected []DetectItem, showDetect bool) {
+	@layouts.Shell(title, path, projectsBody(search, lifecycle, live, items, detected, showDetect))
 }
 
-templ projectsBody(search string, lifecycle string, live string, items []ProjectListItem) {
+templ projectsBody(search string, lifecycle string, live string, items []ProjectListItem, detected []DetectItem, showDetect bool) {
 	<div class="page-heading">
 		<div>
 			<h1>Projects</h1>
 			<p>Search the central registry and open an available internal URL.</p>
 		</div>
 		<div>
-			<form method="post" action="/projects/detect">
-				<button class="button secondary" type="submit">Detect from disk</button>
-			</form>
+			<a class="button secondary" href="/projects/detect">Detect from disk</a>
 			<a class="button primary" href="/projects/new">+ Add project</a>
 		</div>
 	</div>
@@ -481,6 +479,75 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 			</table>
 		</div>
 	</section>
+	if showDetect {
+		@detectModal(detected)
+	}
+}
+
+templ detectModal(detected []DetectItem) {
+	<div class="detect-overlay" x-data="{ query: '' }" @keydown.escape.window="window.location.href = '/projects'">
+		<div class="detect-backdrop" aria-hidden="true" @click="window.location.href = '/projects'"></div>
+		<div class="detect-dialog panel" role="dialog" aria-modal="true" aria-labelledby="detect-title">
+			<div class="panel-head">
+				<div>
+					<h2 id="detect-title">Detected projects</h2>
+					<p>Select the folders to add. Already-registered ones are greyed out.</p>
+				</div>
+				<a class="table-action" href="/projects" aria-label="Close">✕</a>
+			</div>
+			<form method="post" action="/projects/detect" x-ref="detectForm">
+				<div class="detect-toolbar">
+					<input
+						type="search"
+						name="detect-q"
+						placeholder="Search folders"
+						aria-label="Search detected folders"
+						autofocus
+						x-model="query"
+					/>
+					<button
+						class="button secondary"
+						type="button"
+						@click="$refs.detectForm.querySelectorAll('input[name=slugs]:not(:disabled)').forEach(c => c.checked = true)"
+					>Select all</button>
+					<button
+						class="button secondary"
+						type="button"
+						@click="$refs.detectForm.querySelectorAll('input[name=slugs]:not(:disabled)').forEach(c => c.checked = false)"
+					>Unselect all</button>
+				</div>
+				<ul class="detect-list">
+					for _, item := range detected {
+						<li
+							class={ "detect-row", templ.KV("is-existing", item.Exists) }
+							data-search={ item.Name + " " + item.Slug }
+							x-show="!query || $el.dataset.search.toLowerCase().includes(query.toLowerCase())"
+						>
+							<label>
+								if item.Exists {
+									<input type="checkbox" name="slugs" value={ item.Slug } disabled/>
+								} else {
+									<input type="checkbox" name="slugs" value={ item.Slug } checked/>
+								}
+								<span class="detect-name">{ item.Name }</span>
+								<code class="hub-code">{ item.Slug }</code>
+							</label>
+							if item.Exists {
+								<span class="badge neutral">Already added</span>
+							}
+						</li>
+					}
+					if len(detected) == 0 {
+						<li class="detect-empty">No folders found on disk.</li>
+					}
+				</ul>
+				<div class="detect-actions">
+					<a class="button secondary" href="/projects">Cancel</a>
+					<button class="button primary" type="submit">Add selected</button>
+				</div>
+			</form>
+		</div>
+	</div>
 }
 
 templ PortsPage(data PortsPageData) {
