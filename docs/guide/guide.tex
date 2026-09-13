@@ -1,0 +1,215 @@
+% Guide utilisateur PortD — Algérie Télécom
+% Compiler : cd docs/guide && pdflatex guide.tex (deux fois pour la TdM)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[french]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{longtable}
+
+\graphicspath{{./screenshots/}}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black}
+\definecolor{gris}{gray}{0.95}
+\setlength{\parskip}{0.6em}
+
+\newcommand{\shot}[3]{%
+  \begin{center}
+    \includegraphics[width=\textwidth]{#1}%
+    \\ \small\textit{Figure : #2}%
+    \label{#3}
+  \end{center}
+}
+\newcommand{\chemin}[1]{\texttt{#1}}
+\newcommand{\bouton}[1]{\textbf{[#1]}}
+
+\title{PortD — Guide utilisateur\\ \large Hub des projets de stage (Algérie Télécom)}
+\author{Usage interne}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%----------------------------------------------------------------
+\section{Introduction}
+
+PortD est le registre interne des projets de stage : un seul endroit pour
+retrouver un projet, son port, son URL interne, son propriétaire et son état
+d'exécution. Il remplace les adresses \chemin{serveur:port} partagées à la main
+par des fiches projet stables.
+
+\subsection{Les deux rôles}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Stagiaire (intern)} : voit et gère \emph{uniquement ses projets assignés}. Il peut créer un projet pour lui-même, suivre les instructions de démarrage et ouvrir son URL.
+  \item \textbf{Administrateur (admin)} : gère tout — comptes stagiaires, projets, ports, routes proxy et journal d'activité.
+\end{itemize}
+
+\subsection{Concepts clés}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Projet} : nom, \emph{slug} (identifiant URL, ex. \chemin{server-1}), description, stagiaires assignés, répertoire.
+  \item \textbf{Port principal (main)} : le seul port exposé publiquement. \textbf{Ports internes} : ports secondaires (base de données, API locale...).
+  \item \textbf{Accès Direct} : \chemin{serveur:<port-principal>}, fonctionne sans changement applicatif. C'est le mode par défaut.
+  \item \textbf{Accès Proxié} : \chemin{base\_url/<slug>} via Caddy. Peut exiger de configurer le \emph{base path} du framework (voir §\ref{sec:acces}).
+  \item \textbf{Cycle de vie} : \texttt{draft} $\rightarrow$ \texttt{ready} $\rightarrow$ \texttt{running} / \texttt{stopped} / \texttt{failed}, puis \texttt{archived}.
+  \item \textbf{Should run} : intention (« ce projet doit tourner »). Au démarrage de PortD, les projets \texttt{should\_run=true} mais non vivants sont relancés via \chemin{start.sh} (Unix) ou \chemin{start.bat} (Windows).
+\end{itemize}
+
+\subsection{Adresse}
+Par défaut : \url{http://127.0.0.1:8080} (configurable via \chemin{PORTD\_HTTP\_ADDR}). Ce guide utilise \chemin{http://localhost:8080}.
+
+%----------------------------------------------------------------
+\section{Se connecter, se déconnecter, profil}
+
+\subsection{Connexion}
+Ouvrez \chemin{/login}, saisissez identifiant + mot de passe, \bouton{Sign in}.
+En cas d'erreur, un bandeau rouge s'affiche ; vérifiez la casse.
+
+\shot{01-login.png}{Écran de connexion PortD.}{fig:login}
+
+\subsection{Profil et déconnexion}
+\chemin{/profile} affiche votre rôle. Le compte \texttt{admin} est géré par la configuration serveur (lecture seule + \bouton{Sign out}).
+Un stagiaire peut modifier nom complet, identifiant et e-mail puis \bouton{Save changes}.
+
+\shot{14-profile-admin.png}{Profil administrateur (lecture seule).}{fig:profil-admin}
+\shot{16-profile-intern.png}{Profil stagiaire (modifiable).}{fig:profil-intern}
+
+%----------------------------------------------------------------
+\section{Tableau de bord}
+
+\chemin{/} et \chemin{/dashboard} : vue d'ensemble — compteurs (projets actifs, services en vie, ports utilisés, stagiaires actifs), projets par cycle de vie, projets récents, activité récente.
+
+\shot{02-dashboard.png}{Tableau de bord : compteurs, cycle de vie, projets, activité.}{fig:dash}
+
+Lecture : \bouton{+ Add project} crée un projet ; \bouton{View all} ouvre la liste complète. Le badge «~unknown » signale des ports écoutés non enregistrés (voir §\ref{sec:ports}).
+
+Vue stagiaire : mêmes blocs mais limités à ses projets. Un stagiaire sans projet assigné voit un tableau vide — c'est normal.
+
+\shot{15-dashboard-intern.png}{Tableau de bord côté stagiaire.}{fig:dash-intern}
+
+%----------------------------------------------------------------
+\section{Projets}
+
+\subsection{Liste et recherche}
+\chemin{/projects} : recherche plein texte (nom, stagiaire, port), filtres cycle de vie et état live. Chaque ligne donne statut, port principal, suivi, URL interne et lien \bouton{View}.
+
+\shot{03-projects-list.png}{Registre des projets avec recherche et filtres.}{fig:projets}
+
+\subsection{Créer un projet}
+\bouton{+ Add project} (\chemin{/projects/new}) :
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Name} (2–80 car.) ; \textbf{Slug} auto-dérivé si vide (\chemin{^[a-z0-9]+(-[a-z0-9]+)*\$}).
+  \item \textbf{Description}, \textbf{stagiaires assignés} (au moins un ; créez le stagiaire d'abord si la liste est vide).
+  \item \textbf{Lifecycle} (commencez à \texttt{draft}), \textbf{Access mode} (laissez \texttt{Direct} sauf besoin proxié).
+  \item \textbf{Ports needed} (1–5). PortD alloue des ports libres et crée le dossier \chemin{<dir>/<slug>/} avec \chemin{start.sh}, \chemin{start.bat} et \chemin{README.md}.
+  \item Bascule \textbf{Should run} puis \bouton{Create}.
+\end{enumerate}
+
+\shot{04-project-new.png}{Formulaire de création de projet.}{fig:new}
+
+En cas d'échec (port occupé, disque, route Caddy), aucun doublon n'est créé : l'erreur s'affiche et l'activité l'enregistre.
+
+\subsection{Fiche projet (dashboard du projet)}
+\chemin{/projects/<slug>} : page opérationnelle + guide de démarrage. En-tête : nom, badges statut/cycle, URL, propriétaire, port principal, boutons \bouton{Edit} et \bouton{Open project}.
+
+\shot{05-project-detail-top.png}{En-tête de la fiche projet.}{fig:detail-top}
+
+\subsection{Accès au projet : Direct vs Proxié}
+\label{sec:acces}
+Le panneau \textbf{Project access} propose les deux URL. \textbf{Direct} ne demande aucune modification. \textbf{Proxié} exige souvent un base path : choisissez votre framework dans \textbf{Framework quickstarts}, copiez l'extrait (\bouton{Copy setup}) dans le fichier indiqué. Un encadré \textbf{AI prompt} fournit un prompt à coller à votre agent de code. Si la navigation casse en proxié, revenez en Direct.
+
+\shot{06-project-access.png}{Panneau d'accès : Direct, Proxié, quickstarts, prompt IA.}{fig:acces}
+
+\subsection{Exécuter : Start / Stop}
+\label{sec:runtime}
+Le panneau \textbf{Runtime} lance le fichier d'exécution (\chemin{start.sh} / \chemin{start.bat}, modifiable via \bouton{Save file}). \bouton{Start project} / \bouton{Stop project}. L'état affiche \texttt{running}, \texttt{stopped}, \texttt{failed} + PID géré. Si « No start.sh or start.bat », créez le fichier dans le répertoire avant de lancer.
+
+\subsection{Ports et healthchecks}
+Même page, sections \textbf{Ports} et \textbf{Healthchecks} :
+\begin{itemize}[leftmargin=*]
+  \item pastille \texttt{main} / \texttt{internal}, badge \texttt{Live}.
+  \item \bouton{Make main}, \bouton{Release} (avec confirmation), \bouton{Replace main} (avec option libérer l'ancien), \bouton{Allocate} (1–5 ports), \bouton{Claim} (port précis 3000–9999).
+  \item Healthchecks : endpoints (\chemin{/health}) + code attendu, stockés pour la supervision.
+\end{itemize}
+
+\shot{07-project-runtime-ports.png}{Runtime, ports et healthchecks.}{fig:runtime}
+
+\subsection{Mode d'emploi intégré et archivage}
+\textbf{How to run this project} rappelle : dossier, \chemin{localhost:<port>}, commande de démarrage, README. \textbf{Project setup} affiche répertoire et entry point. \bouton{Archive} masque le projet et libère ses ports (réversible via Edit $\rightarrow$ lifecycle).
+
+\shot{08-project-howto.png}{Guide de démarrage intégré et zone d'archivage.}{fig:howto}
+
+\subsection{Modifier un projet}
+\chemin{/projects/<slug>/edit} : nom, description, assignations, lifecycle, mode d'accès, Should run. Le slug est en lecture seule.
+
+\shot{13-project-edit.png}{Édition d'un projet.}{fig:edit}
+
+\subsection{Détecter depuis le disque}
+\bouton{Detect from disk} (\chemin{/projects/detect}) liste les dossiers non enregistrés ; cochez et \bouton{Add selected}. Les dossiers déjà enregistrés sont grisés.
+
+%----------------------------------------------------------------
+\section{Ports}
+\label{sec:ports}
+\chemin{/ports} : observation seule, pas de résolution auto de conflits.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Current scan} : port, processus, projet enregistré, stagiaires, état (Registered / Unregistered). \bouton{Refresh scan} relance.
+  \item \textbf{Reserved, not listening} : ports alloués mais sans processus (projet stoppé en général).
+\end{itemize}
+
+\shot{09-ports.png}{Table des ports : écoutés et réservés.}{fig:ports}
+
+%----------------------------------------------------------------
+\section{Stagiaires (admin)}
+\label{sec:interns}
+\chemin{/interns} : recherche + filtre actif/inactif. \chemin{/interns/new} crée le compte (nom, identifiant, e-mail, mot de passe initial). La fiche \chemin{/interns/<id>} modifie et liste ses projets.
+
+\shot{10-interns-list.png}{Liste des stagiaires.}{fig:interns}
+\shot{11-intern-new.png}{Création d'un compte stagiaire.}{fig:intern-new}
+
+Règle : un projet exige au moins un stagiaire actif — créez le stagiaire \emph{avant} le projet.
+
+%----------------------------------------------------------------
+\section{Journal d'activité (admin)}
+\chemin{/activity} : piste d'audit (projets, runtime, ports, stagiaires, sessions). Filtres : recherche libre, catégorie, type d'événement, succès/échec + pagination \bouton{Newer/Older}.
+
+\shot{12-activity.png}{Journal d'activité avec filtres.}{fig:activity}
+
+%----------------------------------------------------------------
+\section{Parcours stagiaire type}
+\begin{enumerate}[leftmargin=*]
+  \item Connectez-vous, ouvrez \bouton{Overview}.
+  \item Ouvrez \textbf{Projects} : vous ne voyez que vos projets assignés.
+  \item Ouvrez votre fiche (\bouton{View}), lisez \textbf{How to run this project}.
+  \item Travaillez dans le dossier indiqué, écoutez \chemin{localhost:<port-principal>} (jamais le port d'un autre).
+  \item Lancez via \bouton{Start project} dans PortD (ou \chemin{./start.sh} en local selon consigne).
+  \item Ouvrez l'URL \textbf{Direct} ; passez en \textbf{Proxié} uniquement après le quickstart framework.
+  \item En cas de doute : profil, README généré, puis demandez à l'admin (journal d'activité à l'appui).
+\end{enumerate}
+
+%----------------------------------------------------------------
+\section{Dépannage}
+\begin{longtable}{p{4cm}p{10cm}}
+  \hline
+  \textbf{Symptôme} & \textbf{Conduite} \\ \hline
+  Login refusé & Vérifiez identifiant/casse ; contactez l'admin (comptes gérés côté serveur). \\ \hline
+  Projet vide côté stagiaire & Normal si non assigné. Demandez l'assignation à l'admin. \\ \hline
+  \texttt{No startup file} & Créez \chemin{start.sh} / \chemin{start.bat} dans le répertoire, ou corrigez le chemin via \bouton{Save file}, puis Start. \\ \hline
+  Start $\rightarrow$ \texttt{failed} & Lisez les logs projet + activité, corrigez le script, relancez. \\ \hline
+  Port occupé / Claim refusé & Choisissez un autre port dans \chemin{/ports} ; ne prenez jamais le port d'un autre projet. \\ \hline
+  Navigation cassée en Proxié & Appliquez le quickstart (base path) ou revenez en Direct. \\ \hline
+  Route Caddy en échec & Visible dans l'activité ; l'admin relance la synchro, sans recréer le projet. \\ \hline
+\end{longtable}
+
+%----------------------------------------------------------------
+\section*{Annexe — Routes}
+\chemin{/login}, \chemin{/logout}, \chemin{/dashboard}, \chemin{/projects}, \chemin{/projects/new}, \chemin{/projects/<slug>}, \chemin{/<slug>/edit}, \chemin{/projects/detect}, \chemin{/ports}, \chemin{/interns}, \chemin{/interns/new}, \chemin{/interns/<id>}, \chemin{/activity}, \chemin{/profile}, \chemin{/healthz}.
+
+Captures : \chemin{./screenshots/} (16 PNG, 1440$\times$900, prises sur \chemin{localhost:8080} le \today).
+
+\end{document}

@@ -1,6 +1,9 @@
 # PortD
 
-Project hub for Algérie Télécom internships. Authenticated admins and interns manage projects, ports, and runtime state from a single registry with stable proxied URLs instead of raw host-and-port combinations.
+Project hub for Algérie Télécom internships. An admin account (configured via
+environment) and intern accounts (created by admins) manage projects, ports,
+and runtime state from a single registry with stable URLs instead of raw
+host-and-port combinations.
 
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](https://go.dev)
 [![templ](https://img.shields.io/badge/templ-server%20rendered-00ADD8?logo=templ)](https://templ.guide)
@@ -14,7 +17,16 @@ Project hub for Algérie Télécom internships. Authenticated admins and interns
 - **Runtime controls** — project owners and admins can start or stop a project from Project Detail; PortD selects `start.sh` on Unix and `start.bat` on Windows, and flags missing files before launch.
 - **Port discovery** — maps listening host ports to registered projects and caches observations.
 - **Activity log** — creations, lifecycle changes, runtime actions, ports, healthchecks, intern and session events are recorded asynchronously; admins review them at `/activity`.
-- **Role-based access** — admins manage everything; interns view and manage only their assigned projects.
+- **Role-based access** — two roles only: admins manage everything; interns view and manage only their assigned projects.
+- **Disk import** — `Detect from disk` on `/projects` lists unregistered project folders for one-click import.
+- **Framework quickstarts** — each project page shows the one-line base-path setup per framework plus a copy-paste AI prompt.
+
+## Screenshots
+
+![Dashboard](docs/guide/screenshots/02-dashboard.png)
+![Project registry](docs/guide/screenshots/03-projects-list.png)
+![Project access modes](docs/guide/screenshots/06-project-access.png)
+![Port table](docs/guide/screenshots/09-ports.png)
 
 ## Stack
 
@@ -34,6 +46,10 @@ go run ./cmd/portd
 ```
 
 Open `http://127.0.0.1:8080`. The default HTTP address is configurable via `PORTD_HTTP_ADDR`.
+
+Sign in with the admin account: default `admin` / `admin-password`,
+overridable via `PORTD_ADMIN_USERNAME` and `PORTD_ADMIN_PASSWORD`.
+Admins then create intern accounts at `/interns/new`.
 
 ## Project layout
 
@@ -76,6 +92,9 @@ failure aborts creation before any database row is written.
 
 ## Documentation
 
+- [User guide (LaTeX source)](docs/guide/guide.tex) — full French user guide with
+  screenshots (`docs/guide/screenshots/`); compile with `pdflatex guide.tex`
+  inside `docs/guide/`.
 - [Product requirements](agent_docs/prd.md) — detailed flows, data model, and acceptance criteria.
 - [Database schema](agent_docs/database_schema.md) — current tables, relationships, constraints, and migration workflow for onboarding.
 - [Agent guide](agent.md) — engineering rules, system model, and verification expectations.
