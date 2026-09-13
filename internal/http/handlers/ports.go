@@ -29,11 +29,28 @@ func (h *PortsHandler) ListPage(w http.ResponseWriter, r *http.Request) error {
 		}
 		items = append(items, item)
 	}
+	reservedRows, err := h.service.Reserved(r.Context(), rows)
+	if err != nil {
+		return err
+	}
+	reserved := make([]pages.PortRow, 0, len(reservedRows))
+	for _, row := range reservedRows {
+		item := pages.PortRow{
+			Port:       strconv.FormatInt(row.Port, 10),
+			Process:    "—",
+			ProjectID:  row.ProjectID,
+			Registered: true,
+			Interns:    "—",
+		}
+		h.enrich(r, &item)
+		reserved = append(reserved, item)
+	}
 	return httperr.Render(w, r, http.StatusOK, pages.PortsPage(pages.PortsPageData{
 		Path:      r.URL.Path,
 		CheckedAt: time.Now().Format("15:04:05"),
 		Unknown:   unknown,
 		Rows:      items,
+		Reserved:  reserved,
 	}))
 }
 

@@ -53,6 +53,27 @@ func (s *Service) Stats(ctx context.Context) (assigned, unknown int, err error) 
 	return len(ports), unknown, nil
 }
 
+// Reserved returns allocated ports with no live observation (e.g. a project
+// holding ports while stopped). Call after Snapshot so observations are fresh.
+func (s *Service) Reserved(ctx context.Context, observed []db.PortObservation) ([]db.Port, error) {
+	live := make(map[int64]struct{}, len(observed))
+	for _, row := range observed {
+		live[row.Port] = struct{}{}
+	}
+	allocated, err := s.queries.ListAllPorts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// ponytail: diffed in memory; allocated ports number in the dozens.
+	var out []db.Port
+	for _, port := range allocated {
+		if _, ok := live[port.Port]; !ok {
+			out = append(out, port)
+		}
+	}
+	return out, nil
+}
+
 // Snapshot scans, upserts current ports, prunes stale rows, returns the page rows.
 func (s *Service) Snapshot(ctx context.Context) ([]db.PortObservation, error) {
 	live, err := s.scanner.ListeningPorts(ctx)

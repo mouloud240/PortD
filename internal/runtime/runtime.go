@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -105,7 +106,9 @@ func (m *Manager) Start(ctx context.Context, project ManagedProject) (Status, er
 		return Status{State: StateFailed}, errors.New("runtime: project id and directory are required")
 	}
 	executable, err := ResolveExecutable(project.Directory, project.Executable)
+
 	if err != nil {
+		slog.Log(context.Background(), slog.LevelError, "resolve executable", "error", err, "project", project.ID)
 		return Status{State: StateFailed, File: project.Executable}, err
 	}
 
@@ -127,6 +130,8 @@ func (m *Manager) Start(ctx context.Context, project ManagedProject) (Status, er
 	}
 	if err := command.Start(); err != nil {
 		m.mu.Unlock()
+		slog.Log(context.Background(), slog.LevelError, "resolve executable", "error", err, "project", project.ID)
+
 		return Status{State: StateFailed, File: executable}, fmt.Errorf("runtime: start %s: %w", executable, err)
 	}
 	current := &process{

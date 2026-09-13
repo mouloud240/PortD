@@ -223,6 +223,48 @@ func TestDetectPostRegistersDirectories(t *testing.T) {
 	}
 }
 
+func TestPortsPageShowsReserved(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	initDB(t, database)
+	queries := db.New(database)
+	authService := auth.NewService(queries, "admin", "admin-password")
+	internService := internsvc.NewService(queries)
+	projectService := projectsvc.NewService(database, queries, "https://portd.example.test", "", nil)
+	handler := NewHandler(authService, internService, projectService, testPorts(queries), testActivity(t, queries))
+	ctx := context.Background()
+
+	if _, err := internService.Create(ctx, "Port Holder", "holder@example.com", "holder", "secret-123"); err != nil {
+		t.Fatalf("create intern: %v", err)
+	}
+	holder, err := queries.GetActiveInternByIdentifier(ctx, sql.NullString{String: "holder", Valid: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Stub scanner hears nothing, so the allocated port must show as reserved.
+	if _, err := projectService.Create(ctx, projectsvc.CreateInput{Name: "Idle App", Slug: "idle-app", InternIDs: []string{holder.ID}, PortCount: 1}); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	session, err := authService.Login(ctx, "admin", "admin-password")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/ports", nil)
+	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session.Token})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	body := response.Body.String()
+	for _, want := range []string{"Reserved, not listening", "idle-app"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("ports page should contain %q", want)
+		}
+	}
+}
+
 func TestPlaceholderPage(t *testing.T) {
 	t.Parallel()
 

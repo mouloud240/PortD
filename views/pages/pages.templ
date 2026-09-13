@@ -621,6 +621,50 @@ templ portsBody(data PortsPageData) {
 			</table>
 		</div>
 	</section>
+	<section class="panel ports-panel">
+		<div class="ports-panel-intro">
+			<div>
+				<strong>Reserved, not listening</strong>
+				<p>Allocated to a project but no process found on the OS. Usually a stopped project.</p>
+			</div>
+			<div class="ports-scan-meta">
+				if len(data.Reserved) > 0 {
+					<span class="badge neutral">{ strconv.Itoa(len(data.Reserved)) } reserved</span>
+				}
+			</div>
+		</div>
+		<div class="panel-body table-wrap">
+			<table class="hub-table">
+				<thead>
+					<tr>
+						<th>Port</th>
+						<th>Registered project</th>
+						<th>Intern</th>
+						<th>State</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range data.Reserved {
+						<tr>
+							<td><code class="hub-code">{ row.Port }</code></td>
+							<td>
+								<a class="project-name" href={ "/projects/" + row.ProjectSlug }>{ row.Project }</a>
+							</td>
+							<td>{ row.Interns }</td>
+							<td><span class="badge neutral">Reserved</span></td>
+						</tr>
+					}
+					if len(data.Reserved) == 0 {
+						<tr>
+							<td colspan="4">
+								<div class="empty-state">No reserved ports. Every allocated port is listening.</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</section>
 }
 
 templ ProjectFormPage(data ProjectFormData) {

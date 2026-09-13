@@ -85,6 +85,37 @@ func TestSnapshotResolvesAndPrunes(t *testing.T) {
 	}
 }
 
+func TestReservedListsAllocatedButNotListening(t *testing.T) {
+	_, queries := testDB(t)
+	ctx := context.Background()
+	svc := NewService(queries, stubScanner{ports: []ListeningPort{{Port: 4000}}})
+
+	rows, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reserved, err := svc.Reserved(ctx, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reserved) != 1 || reserved[0].Port != 3000 || reserved[0].ProjectID != "p1" {
+		t.Fatalf("reserved = %+v, want [3000/p1]", reserved)
+	}
+
+	live := NewService(queries, stubScanner{ports: []ListeningPort{{Port: 3000}, {Port: 4000}}})
+	rows, err = live.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reserved, err = live.Reserved(ctx, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reserved) != 0 {
+		t.Fatalf("reserved = %+v, want none", reserved)
+	}
+}
+
 func TestStatsCountsAssignedAndUnknown(t *testing.T) {
 	_, queries := testDB(t)
 	svc := NewService(queries, stubScanner{})

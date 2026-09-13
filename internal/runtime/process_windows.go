@@ -19,9 +19,9 @@ func configureProcess(_ *exec.Cmd) error {
 }
 
 func terminateProcess(cmd *exec.Cmd) error {
-	return cmd.Process.Kill()
+	return killTree(cmd.Process.Pid, cmd.Process.Kill)
 }
 
 func forceTerminateProcess(cmd *exec.Cmd) error {
-	return cmd.Process.Kill()
+	return killTree(cmd.Process.Pid, cmd.Process.Kill)
 }

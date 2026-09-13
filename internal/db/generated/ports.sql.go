@@ -69,6 +69,38 @@ func (q *Queries) InsertPort(ctx context.Context, arg InsertPortParams) (Port, e
 	return i, err
 }
 
+const listAllPorts = `-- name: ListAllPorts :many
+SELECT port, project_id, role, created_at FROM ports ORDER BY port
+`
+
+func (q *Queries) ListAllPorts(ctx context.Context) ([]Port, error) {
+	rows, err := q.db.QueryContext(ctx, listAllPorts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Port
+	for rows.Next() {
+		var i Port
+		if err := rows.Scan(
+			&i.Port,
+			&i.ProjectID,
+			&i.Role,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAssignedPorts = `-- name: ListAssignedPorts :many
 SELECT port FROM ports ORDER BY port
 `

@@ -226,6 +226,7 @@ type PortsPageData struct {
 	CheckedAt string
 	Unknown   int
 	Rows      []PortRow
+	Reserved  []PortRow
 }
 
 // LifecycleBar is one bar of the overview lifecycle breakdown.

@@ -1,6 +1,9 @@
 -- name: ListAssignedPorts :many
 SELECT port FROM ports ORDER BY port;
 
+-- name: ListAllPorts :many
+SELECT * FROM ports ORDER BY port;
+
 -- name: ListProjectPorts :many
 SELECT * FROM ports WHERE project_id = ? ORDER BY port;
 
