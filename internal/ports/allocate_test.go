@@ -77,3 +77,44 @@ func TestPromoteAndReleaseGuards(t *testing.T) {
 		t.Fatalf("release live error = %v, want %v", err, ErrPortLive)
 	}
 }
+
+func TestReplaceMain(t *testing.T) {
+	database, queries := testDB(t)
+	ctx := context.Background()
+	if _, err := Allocate(ctx, queries, "p1", 1); err != nil {
+		t.Fatal(err)
+	}
+	old, err := queries.GetProjectMainPort(ctx, "p1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ponytail: auto-replace promotes the new port and releases the old one.
+	newPort, released, err := ReplaceMain(ctx, database, queries, "p1", 0, true)
+	if err != nil || !released {
+		t.Fatalf("replace = %d, %v, %v; want new port, released=true", newPort, released, err)
+	}
+	main, err := queries.GetProjectMainPort(ctx, "p1")
+	if err != nil || main.Port != newPort {
+		t.Fatalf("main = %+v, %v, want %d", main, err, newPort)
+	}
+	rows, _ := queries.ListProjectPorts(ctx, "p1")
+	for _, row := range rows {
+		if row.Port == old.Port {
+			t.Fatalf("old main %d still assigned, want released", old.Port)
+		}
+	}
+	// Live old main is kept, not errored.
+	if _, err := ClaimPort(ctx, queries, "p1", 4000); err != nil {
+		t.Fatal(err)
+	}
+	observe(t, queries, int(newPort))
+	_, released, err = ReplaceMain(ctx, database, queries, "p1", 0, true)
+	if err != nil || released {
+		t.Fatalf("replace live-old = released=%v, err=%v; want kept (false), nil", released, err)
+	}
+	// Claim path with release disabled keeps both.
+	claimed, released, err := ReplaceMain(ctx, database, queries, "p1", 4001, false)
+	if err != nil || claimed != 4001 || released {
+		t.Fatalf("replace claim = %d, %v, %v; want 4001, false, nil", claimed, released, err)
+	}
+}

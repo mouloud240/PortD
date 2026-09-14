@@ -1,0 +1,199 @@
+% PortD — Sysadmin Setup Guide (Algérie Télécom)
+% Compiler : cd docs && pdflatex sysadmin-setup.tex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{longtable}
+
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black}
+\setlength{\parskip}{0.6em}
+
+\newcommand{\chemin}[1]{\texttt{#1}}
+
+\title{PortD — Sysadmin Setup Guide\\ \large Deployment and operations (Algérie Télécom)}
+\author{Mouloud}
+\date{\today}
+
+\begin{document}
+
+% --- Logo placeholder : drop the Algérie Télécom logo file next to this
+% --- .tex (e.g. logo-alg-telecom.png) then uncomment the \includegraphics
+% --- line and remove the \fbox below.
+\begin{center}
+  %\includegraphics[height=2.5cm]{logo-alg-telecom.png}
+  \fbox{\parbox[c][2.5cm][c]{6cm}{\centering Logo Algérie Télécom}}
+\end{center}
+
+\maketitle
+\tableofcontents
+\newpage
+
+Deploy and run PortD on a server (Linux or Windows). No Go toolchain, no
+database server, no proxy needed: both binaries are static and SQLite is
+embedded.
+
+%----------------------------------------------------------------
+\section{Files you received}
+
+\begin{center}
+\begin{tabular}{p{4cm}p{1.6cm}p{7.5cm}}
+  \hline
+  \textbf{File} & \textbf{OS} & \textbf{What it is / when to run it} \\ \hline
+  \chemin{portd-linux-amd64} & Linux & The PortD HTTP server. Run every time you (re)start the service. \\ \hline
+  \chemin{migrate-linux-amd64} & Linux & Applies pending SQLite schema migrations. Run once on first install, again after each update that ships new migrations. \\ \hline
+  \chemin{portd-windows-amd64.exe} & Windows & Same server, Windows build. Run every time you (re)start the service. \\ \hline
+  \chemin{migrate-windows-amd64.exe} & Windows & Same migrator, Windows build. Run once on first install, again after each update. \\ \hline
+\end{tabular}
+\end{center}
+
+Rules:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Never run \chemin{portd} before \chemin{migrate}} on a fresh machine — the server does \textbf{not} create or upgrade the schema itself; it just opens the DB file.
+  \item \textbf{Re-running \chemin{migrate up} is safe} — already-applied migrations are skipped.
+  \item Use only the two binaries matching your OS; Linux and Windows files are not interchangeable.
+\end{itemize}
+
+%----------------------------------------------------------------
+\section{Folder layout on the server}
+
+Both binaries use \textbf{relative paths}, so run them from the deployment folder. That folder must contain:
+
+\begin{verbatim}
+deploy/
+|-- .env                        # you create this (see section 3)
+|-- portd-linux-amd64           # or .exe on Windows
+|-- migrate-linux-amd64         # or .exe on Windows
+|-- internal/db/migrations/     # *.up.sql / *.down.sql, shipped with release
+`-- web/static/                 # CSS + JS, shipped with release
+\end{verbatim}
+
+Missing \chemin{web/static/} $\rightarrow$ unstyled pages and broken UI scripts.
+Missing \chemin{internal/db/migrations/} $\rightarrow$ \chemin{migrate} fails.
+Missing \chemin{.env} $\rightarrow$ \chemin{portd} \textbf{crashes on startup}.
+
+%----------------------------------------------------------------
+\section{\texttt{.env} — copy, then edit}
+
+Copy this block into \chemin{deploy/.env} and adjust the values:
+
+\begin{verbatim}
+PORTD_HTTP_ADDR=127.0.0.1:8080
+PORTD_DB_PATH=tmp/portd.db
+BASE_URL=http://127.0.0.1:8080
+PORTD_PROJECTS_DIR=~/dev/portd-projects
+PORTD_ADMIN_USERNAME=admin
+PORTD_ADMIN_PASSWORD=admin-password
+\end{verbatim}
+
+What each variable does:
+
+\begin{center}
+\begin{longtable}{p{3.8cm}p{3.5cm}p{7cm}}
+  \hline
+  \textbf{Variable} & \textbf{Default} & \textbf{Meaning} \\ \hline
+  \chemin{PORTD\_HTTP\_ADDR} & \chemin{127.0.0.1:8080} & Address the server listens on. Use \chemin{0.0.0.0:8080} to expose it on the LAN (put it behind a reverse proxy / firewall, there is no TLS built in). \\ \hline
+  \chemin{PORTD\_DB\_PATH} & \chemin{tmp/portd.db} & SQLite file. Parent folders are auto-created by \chemin{migrate}. \textbf{Back up this file} — it is the whole state. \\ \hline
+  \chemin{BASE\_URL} & \chemin{http://} + addr & Public base URL shown in project pages and used to build Proxied URLs (\chemin{<BASE\_URL>/<slug>}). Set it to the URL users actually open. Trailing \chemin{/} is stripped. \\ \hline
+  \chemin{PORTD\_PROJECTS\_DIR} & \chemin{\textasciitilde/dev/portd-projects} & Where project folders \chemin{<slug>/} with \chemin{start.sh}, \chemin{start.bat} and \chemin{README.md} are scaffolded. \chemin{\textasciitilde} = service user's home. Must be writable by the service user. \\ \hline
+  \chemin{PORTD\_ADMIN\_USERNAME} & \chemin{admin} & Login of the built-in admin account (config-based, not stored in DB). \\ \hline
+  \chemin{PORTD\_ADMIN\_PASSWORD} & \chemin{admin-password} & \textbf{Change this before going live.} Anyone with it owns the registry. \\ \hline
+\end{longtable}
+\end{center}
+
+%----------------------------------------------------------------
+\section{First install}
+
+\subsection{Linux}
+
+\begin{verbatim}
+cd /opt/portd            # your deploy folder (see section 2)
+nano .env                # paste section 3 block, set a real password
+
+./migrate-linux-amd64 up # creates tmp/portd.db + schema
+./portd-linux-amd64      # foreground test run
+\end{verbatim}
+
+Then open \chemin{http://<host>:8080/healthz} (expect \chemin{ok}) and \chemin{/login} (admin login from \chemin{.env}). Stop with \chemin{Ctrl+C} (10~s graceful shutdown), then install it as a service:
+
+\begin{verbatim}
+# /etc/systemd/system/portd.service
+[Unit]
+Description=PortD project hub
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/portd
+ExecStart=/opt/portd/portd-linux-amd64
+Restart=on-failure
+User=portd
+
+[Install]
+WantedBy=multi-user.target
+\end{verbatim}
+
+\begin{verbatim}
+systemctl daemon-reload && systemctl enable --now portd
+\end{verbatim}
+
+\chemin{WorkingDirectory} matters — that is where \chemin{.env}, \chemin{web/static/} and \chemin{internal/db/migrations/} are resolved from.
+
+\subsection{Windows (PowerShell)}
+
+\begin{verbatim}
+cd C:\portd              # your deploy folder (see section 2)
+notepad .env             # paste section 3 block, set a real password
+
+.\migrate-windows-amd64.exe up
+.\portd-windows-amd64.exe
+\end{verbatim}
+
+Verify \chemin{http://localhost:8080/healthz}, then register it to start automatically (Task Scheduler at logon, or a tool like NSSM as a service — run it with \textbf{Start in} = \chemin{C:\textbackslash portd} for the same relative-path reason).
+
+%----------------------------------------------------------------
+\section{Updates}
+
+\begin{enumerate}[leftmargin=*]
+  \item Stop the service.
+  \item Replace the two binaries \textbf{and} \chemin{internal/db/migrations/} + \chemin{web/static/} with the new release (stale \chemin{web/static/} renders a mix of old/new UI).
+  \item Run \chemin{migrate up} again (skips what is already applied).
+  \item Start the service.
+  \item Check \chemin{/healthz} and \chemin{/dashboard}.
+\end{enumerate}
+
+Downgrades are \textbf{not} supported — the migrator only runs \chemin{up}. Restore the DB backup instead.
+
+%----------------------------------------------------------------
+\section{Day-to-day notes}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Reverse proxy (optional):} only needed for Proxied mode (\chemin{BASE\_URL/<slug>}). Direct mode (\chemin{host:<main-port>}) works with nothing else installed. No proxy connection is required for the server to boot.
+  \item \textbf{Project processes:} PortD launches each project's \chemin{start.sh} (Linux) or \chemin{start.bat} (Windows); the service user needs permission to spawn them.
+  \item \textbf{Backup:} stop the service (or accept a hot copy — single SQLite file), copy \chemin{PORTD\_DB\_PATH}. Restore = put the file back, run \chemin{migrate up}.
+  \item \textbf{Logs:} plain text on stdout — collect via journald / service wrapper.
+\end{itemize}
+
+%----------------------------------------------------------------
+\section{Troubleshooting}
+
+\begin{center}
+\begin{longtable}{p{4.2cm}p{10cm}}
+  \hline
+  \textbf{Symptom} & \textbf{Cause / fix} \\ \hline
+  \chemin{portd} panics immediately & No \chemin{.env} in the working directory — create it (section~3) or fix \chemin{WorkingDirectory} / \textbf{Start in}. \\ \hline
+  \chemin{migrate}: configure-migrations error & \chemin{internal/db/migrations/} missing next to the binary — re-extract the release. \\ \hline
+  \chemin{migrate}: apply-migrations version error & DB newer than the binaries (downgrade attempt) — restore the backup. \\ \hline
+  bind: address already in use & \chemin{PORTD\_HTTP\_ADDR} port taken — change the port or stop the other process. \\ \hline
+  Pages without styling & \chemin{web/static/} missing or stale — re-extract, restart. \\ \hline
+  Login loops back to \chemin{/login} & Usually transient \chemin{SQLITE\_BUSY} under load; retry. If persistent, check DB file permissions. \\ \hline
+\end{longtable}
+\end{center}
+
+\end{document}

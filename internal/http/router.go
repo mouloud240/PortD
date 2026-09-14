@@ -67,6 +67,7 @@ func NewRouter(
 	mux.Handle("POST /projects/{slug}/ports/allocate", httperr.Handle(requireProjectMember(projectHandlers.AllocatePortsPost)))
 	mux.Handle("POST /projects/{slug}/ports/release", httperr.Handle(requireProjectMember(projectHandlers.ReleasePortPost)))
 	mux.Handle("POST /projects/{slug}/ports/claim", httperr.Handle(requireProjectMember(projectHandlers.ClaimPortPost)))
+	mux.Handle("POST /projects/{slug}/ports/replace", httperr.Handle(requireProjectMember(projectHandlers.ReplaceMainPost)))
 	// Healthchecks management
 	mux.Handle("POST /projects/{slug}/healthchecks", httperr.Handle(requireProjectMember(projectHandlers.AddHealthcheckPost)))
 	mux.Handle("POST /projects/{slug}/healthchecks/{id}/delete", httperr.Handle(requireProjectMember(projectHandlers.RemoveHealthcheckPost)))

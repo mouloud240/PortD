@@ -853,11 +853,11 @@ templ projectDetailBody(data ProjectDetailData) {
 				<p class="access-fallback"><strong>Navigation broken under Proxied?</strong> Use Direct mode from Edit, or open the direct URL above without changing your project.</p>
 			</div>
 		</section>
-		<section class="panel detail-panel">
+		<section class="panel detail-panel" id="ports" x-data="{ confirming: '' }">
 			<div class="panel-head">
 				<div>
 					<h2>Ports</h2>
-					<p>Only the main port gets a public link. Allocate or release on the <a class="table-action" href={ "/projects/" + data.Slug + "/edit" }>Edit page</a>.</p>
+					<p>Only the main port gets a public link. All actions happen here.</p>
 				</div>
 			</div>
 			<div class="panel-body panel-body-padded">
@@ -867,9 +867,9 @@ templ projectDetailBody(data ProjectDetailData) {
 					</div>
 				}
 				if len(data.AllocatedPorts) == 0 {
-					<p class="text-sm text-brand-muted">No ports assigned yet.</p>
+					<p class="text-sm text-brand-muted mb-4">No ports assigned yet.</p>
 				} else {
-					<ul class="flex flex-col gap-2">
+					<ul class="flex flex-col gap-2 mb-5">
 						for _, port := range data.AllocatedPorts {
 							<li class="flex flex-wrap items-center gap-2">
 								<code class="hub-code">{ port.Port }</code>
@@ -879,9 +879,23 @@ templ projectDetailBody(data ProjectDetailData) {
 									<span class="port">internal</span>
 									<form method="post" action={ "/projects/" + data.Slug + "/ports/promote" }>
 										<input type="hidden" name="port" value={ port.Port }/>
-										<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
+										<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
 										<button class="table-action" type="submit">Make main</button>
 									</form>
+									<form method="post" action={ "/projects/" + data.Slug + "/ports/release" } x-show="confirming !== '{ port.Port }'">
+										<input type="hidden" name="port" value={ port.Port }/>
+										<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
+										<button class="link-danger" type="button" @click={ "confirming = '" + port.Port + "'" }>Release</button>
+									</form>
+									<div class="flex items-center gap-2" x-show={ "confirming === '" + port.Port + "'" } x-cloak>
+										<span class="text-sm text-slate-600">Release { port.Port }?</span>
+										<form method="post" action={ "/projects/" + data.Slug + "/ports/release" }>
+											<input type="hidden" name="port" value={ port.Port }/>
+											<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
+											<button class="button danger" type="submit">Confirm</button>
+										</form>
+										<button class="button secondary" type="button" @click="confirming = ''">Cancel</button>
+									</div>
 								}
 								if port.Live {
 									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
@@ -893,6 +907,38 @@ templ projectDetailBody(data ProjectDetailData) {
 						}
 					</ul>
 				}
+				<div class="flex flex-col gap-4">
+					<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/replace" }>
+						<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
+						<label class="block text-sm font-bold text-slate-700">
+							New main port
+							<input class="mt-1 block w-28 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="port" type="number" min="3000" max="9999" placeholder="auto"/>
+						</label>
+						<label class="flex items-center gap-1.5 text-sm font-normal text-slate-700 pb-2">
+							<input type="checkbox" name="release_old" value="on" checked/>
+							Release old main
+						</label>
+						<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-navy hover:opacity-90 text-white text-sm font-bold rounded-lg transition-opacity cursor-pointer" type="submit">Replace main</button>
+					</form>
+					<div class="flex flex-wrap gap-4">
+						<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/allocate" }>
+							<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
+							<label class="block text-sm font-bold text-slate-700">
+								More ports
+								<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal" name="count" type="number" min="1" max="5" value="1"/>
+							</label>
+							<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Allocate</button>
+						</form>
+						<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/claim" }>
+							<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
+							<label class="block text-sm font-bold text-slate-700">
+								Specific port
+								<input class="mt-1 block w-28 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="port" type="number" min="3000" max="9999" placeholder="3000"/>
+							</label>
+							<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Claim</button>
+						</form>
+					</div>
+				</div>
 			</div>
 		</section>
 		<section class="panel detail-panel">
@@ -1127,69 +1173,14 @@ templ projectFormBody(data ProjectFormData) {
 }
 
 templ projectPortsPanel(data ProjectFormData) {
-	<section class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm mt-6" x-data="{ confirming: '' }">
+	<section class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm mt-6">
 		<h2 class="text-base font-bold text-brand-navy">Ports</h2>
-		<p class="text-brand-muted text-sm mt-0.5 mb-4">Allocate more, claim a specific port, or release one you no longer need.</p>
+		<p class="text-brand-muted text-sm mt-0.5">Manage ports on the <a class="table-action" href={ "/projects/" + data.Slug + "#ports" }>project page</a> — allocate, claim, promote, release, or replace main in one place.</p>
 		if data.PortError != "" {
-			<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+			<div class="p-3 mt-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
 				{ data.PortError }
 			</div>
 		}
-		if len(data.Ports) == 0 {
-			<p class="text-sm text-brand-muted mb-4">No ports assigned yet.</p>
-		} else {
-			<ul class="flex flex-col gap-2 mb-5">
-				for _, port := range data.Ports {
-					<li class="flex flex-wrap items-center gap-2">
-						<code class="hub-code">{ port.Port }</code>
-						if port.IsMain {
-							<span class="port main">main</span>
-							<span class="text-xs text-brand-muted">Promote another port first to release this one.</span>
-						} else {
-							<span class="port">internal</span>
-							<form method="post" action={ "/projects/" + data.Slug + "/ports/release" } x-show="confirming !== '{ port.Port }'">
-								<input type="hidden" name="port" value={ port.Port }/>
-								<input type="hidden" name="next" value={ "/projects/" + data.Slug + "/edit" }/>
-								<button class="link-danger" type="button" @click={ "confirming = '" + port.Port + "'" }>Release</button>
-							</form>
-							<div class="flex items-center gap-2" x-show={ "confirming === '" + port.Port + "'" } x-cloak>
-								<span class="text-sm text-slate-600">Release { port.Port }?</span>
-								<form method="post" action={ "/projects/" + data.Slug + "/ports/release" }>
-									<input type="hidden" name="port" value={ port.Port }/>
-									<input type="hidden" name="next" value={ "/projects/" + data.Slug + "/edit" }/>
-									<button class="button danger" type="submit">Confirm</button>
-								</form>
-								<button class="button secondary" type="button" @click="confirming = ''">Cancel</button>
-							</div>
-						}
-						if port.Live {
-							<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
-								<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-								Live
-							</span>
-						}
-					</li>
-				}
-			</ul>
-		}
-		<div class="flex flex-col gap-4">
-			<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/allocate" }>
-				<input type="hidden" name="next" value={ "/projects/" + data.Slug + "/edit" }/>
-				<label class="block text-sm font-bold text-slate-700">
-					More ports
-					<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal" name="count" type="number" min="1" max="5" value="1"/>
-				</label>
-				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Allocate</button>
-			</form>
-			<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/claim" }>
-				<input type="hidden" name="next" value={ "/projects/" + data.Slug + "/edit" }/>
-				<label class="block text-sm font-bold text-slate-700">
-					Specific port
-					<input class="mt-1 block w-28 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="port" type="number" min="3000" max="9999" placeholder="3000"/>
-				</label>
-				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Claim</button>
-			</form>
-		</div>
 	</section>
 }
 

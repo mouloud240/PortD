@@ -10,3 +10,4 @@ agent_docs/*
 .claude
 .opencode
 node_modules/
+.playwright-mcp/

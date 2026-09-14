@@ -10,12 +10,18 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/joho/godotenv"
 	_ "modernc.org/sqlite"
 )
 
 const defaultDatabasePath = "tmp/portd.db"
 
 func main() {
+	err:=godotenv.Load(".env")
+	if err!=nil{
+		fmt.Fprintf(os.Stderr, "load .env file: %v\n", err)
+		os.Exit(1)
+	}
 	if len(os.Args) != 2 || os.Args[1] != "up" {
 		fmt.Fprintln(os.Stderr, "usage: migrate up")
 		os.Exit(2)
@@ -55,4 +61,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "apply migrations: %v\n", err)
 		os.Exit(1)
 	}
+	version,dirty,err:= migration.Version()
+	fmt.Printf("Migration completed On db %s. Current version: %d, Dirty: %v\n",databasePath, version, dirty)
+
 }

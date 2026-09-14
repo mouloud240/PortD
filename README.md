@@ -85,7 +85,7 @@ expects `just` and `sqlc` to be installed, and runs the migration CLI through
 `go run`.
 
 `PORTD_PROJECTS_DIR` controls where project directories are scaffolded and
-defaults to `/var/portd/projects`. Creating a project makes
+defaults to `~/dev/portd-projects` (relative to the service user's home). Creating a project makes
 `<dir>/<slug>/` with `start.sh`, `start.bat`, and a generated `README.md`
 describing the project, its ports, and how PortD runs and exposes it; a disk
 failure aborts creation before any database row is written.
@@ -95,6 +95,9 @@ failure aborts creation before any database row is written.
 - [User guide (LaTeX source)](docs/guide/guide.tex) — full French user guide with
   screenshots (`docs/guide/screenshots/`); compile with `pdflatex guide.tex`
   inside `docs/guide/`.
+- [Sysadmin setup (LaTeX source)](docs/sysadmin-setup.tex) — server install, `.env`
+  reference, Linux/Windows binaries, migrate-vs-run, updates and
+  troubleshooting; compile with `pdflatex sysadmin-setup.tex` inside `docs/`.
 - [Product requirements](agent_docs/prd.md) — detailed flows, data model, and acceptance criteria.
 - [Database schema](agent_docs/database_schema.md) — current tables, relationships, constraints, and migration workflow for onboarding.
 - [Agent guide](agent.md) — engineering rules, system model, and verification expectations.

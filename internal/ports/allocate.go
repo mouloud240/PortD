@@ -164,6 +164,70 @@ func ClaimPort(ctx context.Context, q *db.Queries, projectID string, port int) (
 	})
 }
 
+// ReplaceMain allocates (or claims) a new port, promotes it to main, and
+// optionally releases the old main — all in one tx so the caller never
+// bounces between pages. Claim <= 0 means auto-allocate the lowest free.
+// Old main that is still live is kept (not an error); oldReleased reports
+// whether the old row was actually deleted.
+// ponytail: one tx, no partial promote-without-cleanup states to reason about.
+func ReplaceMain(ctx context.Context, database *sql.DB, q *db.Queries, projectID string, claim int, releaseOld bool) (newPort int64, oldReleased bool, err error) {
+	tx, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	qtx := q.WithTx(tx)
+	var current int64
+	if row, err := qtx.GetProjectMainPort(ctx, projectID); err == nil {
+		current = row.Port
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return 0, false, err
+	}
+	var created db.Port
+	if claim > 0 {
+		if created, err = ClaimPort(ctx, qtx, projectID, claim); err != nil {
+			return 0, false, err
+		}
+	} else {
+		var rows []db.Port
+		if rows, err = Allocate(ctx, qtx, projectID, 1); err != nil {
+			return 0, false, err
+		}
+		created = rows[0]
+	}
+	if current != 0 && current != created.Port {
+		if _, err := qtx.SetPortRole(ctx, db.SetPortRoleParams{Role: "internal", Port: current, ProjectID: projectID}); err != nil {
+			return 0, false, err
+		}
+	}
+	if _, err := qtx.SetPortRole(ctx, db.SetPortRoleParams{Role: "main", Port: created.Port, ProjectID: projectID}); err != nil {
+		return 0, false, err
+	}
+	if releaseOld && current != 0 && current != created.Port {
+		live := false
+		if observed, err := qtx.ListPortObservations(ctx); err != nil {
+			return 0, false, err
+		} else {
+			for _, row := range observed {
+				if row.Port == current {
+					live = true
+					break
+				}
+			}
+		}
+		if !live {
+			if err := qtx.DeletePort(ctx, db.DeletePortParams{Port: current, ProjectID: projectID}); err != nil {
+				return 0, false, err
+			}
+			oldReleased = true
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, false, err
+	}
+	return created.Port, oldReleased, nil
+}
+
 // PromoteMain makes port the project's main port and demotes the old one.
 func PromoteMain(ctx context.Context, database *sql.DB, q *db.Queries, projectID string, port int64) error {
 	tx, err := database.BeginTx(ctx, nil)

@@ -234,6 +234,38 @@ func (h *ProjectsHandler) ClaimPortPost(w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
+func (h *ProjectsHandler) ReplaceMainPost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return httperr.BadRequest("Invalid form submission.", err)
+	}
+	slug := r.PathValue("slug")
+	claim := 0
+	if raw := strings.TrimSpace(r.FormValue("port")); raw != "" {
+		var err error
+		claim, err = strconv.Atoi(raw)
+		if err != nil {
+			return h.portBack(w, r, slug, portsvc.ErrOutOfRange)
+		}
+	}
+	releaseOld := r.FormValue("release_old") != "off"
+	newPort, released, err := h.service.ReplaceMainPort(r.Context(), slug, claim, releaseOld)
+	if err != nil {
+		return h.portBack(w, r, slug, err)
+	}
+	detail := "port " + strconv.FormatInt(newPort, 10)
+	if !released && releaseOld {
+		detail += " (old main kept: still live)"
+	}
+	h.activity.Record(r.Context(), activitysvc.Event{
+		EventType:  activitysvc.PortPromote,
+		EntityType: "project",
+		EntityID:   slug,
+		Detail:     detail,
+	})
+	http.Redirect(w, r, portBackURL(r, slug), http.StatusSeeOther)
+	return nil
+}
+
 func (h *ProjectsHandler) AddHealthcheckPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return httperr.BadRequest("Invalid form submission.", err)

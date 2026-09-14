@@ -737,6 +737,14 @@ func (s *Service) ReleasePort(ctx context.Context, slug string, port int64) erro
 	return portsvc.ReleasePort(ctx, s.queries, projectID, port)
 }
 
+func (s *Service) ReplaceMainPort(ctx context.Context, slug string, claim int, releaseOld bool) (int64, bool, error) {
+	projectID, err := s.projectIDBySlug(ctx, slug)
+	if err != nil {
+		return 0, false, err
+	}
+	return portsvc.ReplaceMain(ctx, s.db, s.queries, projectID, claim, releaseOld)
+}
+
 func (s *Service) PromotePort(ctx context.Context, slug string, port int64) error {
 	projectID, err := s.projectIDBySlug(ctx, slug)
 	if err != nil {
