@@ -17,7 +17,7 @@ func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) error {
 
 func (h *AuthHandler) LoginPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	session, err := h.service.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
@@ -28,7 +28,7 @@ func (h *AuthHandler) LoginPost(w http.ResponseWriter, r *http.Request) error {
 			Outcome:    activitysvc.OutcomeFailure,
 			Detail:     "username " + r.FormValue("username"),
 		})
-		return httperr.Render(w, r, http.StatusUnauthorized, pages.LoginPage("Invalid username or password."))
+		return httperr.Render(w, r, http.StatusUnauthorized, pages.LoginPage("Nom d'utilisateur ou mot de passe invalide."))
 	}
 	slog.Info("login succeeded", "username", r.FormValue("username"), "remote", r.RemoteAddr)
 	h.activity.Record(r.Context(), activitysvc.Event{

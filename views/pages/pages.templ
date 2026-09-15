@@ -8,37 +8,37 @@ import (
 )
 
 templ DashboardPage(data DashboardData) {
-	@layouts.Shell("Overview", "/dashboard", dashboardBody(data))
+	@layouts.Shell("Aperçu", "/dashboard", dashboardBody(data))
 }
 
 templ dashboardBody(data DashboardData) {
 	<div class="page-heading">
 		<div>
-			<h1>Overview</h1>
-			<p>Monitor intern projects and assigned server ports.</p>
+			<h1>Aperçu</h1>
+			<p>Suivez les projets des stagiaires et les ports serveur attribués.</p>
 		</div>
-		<a class="button primary" href="/projects/new">+ Add project</a>
+		<a class="button primary" href="/projects/new">+ Ajouter un projet</a>
 	</div>
 	<div class="stat-grid">
-		<article><span>Active projects</span><strong>{ strconv.Itoa(data.ActiveProjects) }</strong><small>Non-archived</small></article>
-		<article><span>Running services</span><strong>{ strconv.Itoa(data.LiveServices) }<em>/{ strconv.Itoa(data.TotalServices) }</em></strong><small>Reachability snapshot</small></article>
+		<article><span>Projets actifs</span><strong>{ strconv.Itoa(data.ActiveProjects) }</strong><small>Non archivés</small></article>
+		<article><span>Services en cours</span><strong>{ strconv.Itoa(data.LiveServices) }<em>/{ strconv.Itoa(data.TotalServices) }</em></strong><small>État de joignabilité</small></article>
 		<article>
-			<span>Used ports</span><strong>{ strconv.Itoa(data.AssignedPorts) }</strong>
+			<span>Ports utilisés</span><strong>{ strconv.Itoa(data.AssignedPorts) }</strong>
 			if data.UnknownPorts > 0 {
-				<small class="warning">{ strconv.Itoa(data.UnknownPorts) } unknown</small>
+				<small class="warning">{ strconv.Itoa(data.UnknownPorts) } inconnus</small>
 			} else {
-				<small>All registered</small>
+				<small>Tous enregistrés</small>
 			}
 		</article>
-		<article><span>Active interns</span><strong>{ strconv.Itoa(data.ActiveInterns) }</strong><small>Current placements</small></article>
+		<article><span>Stagiaires actifs</span><strong>{ strconv.Itoa(data.ActiveInterns) }</strong><small>Stages en cours</small></article>
 	</div>
 	<section class="panel">
 		<div class="panel-head">
 			<div>
-				<h2>Projects by lifecycle</h2>
-				<p>Active projects per stage, excluding archived.</p>
+				<h2>Projets par étape</h2>
+				<p>Projets actifs par étape, hors archivés.</p>
 			</div>
-			<a class="table-action" href="/projects">View all</a>
+			<a class="table-action" href="/projects">Tout voir</a>
 		</div>
 		<div class="panel-body panel-body-padded">
 			<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;">
@@ -58,18 +58,18 @@ templ dashboardBody(data DashboardData) {
 		<section class="panel">
 			<div class="panel-head">
 				<div>
-					<h2>Current projects</h2>
-					<p>Open an internal project or view its setup.</p>
+					<h2>Projets actuels</h2>
+					<p>Ouvrez un projet interne ou consultez sa configuration.</p>
 				</div>
-				<a class="table-action" href="/projects">View all</a>
+				<a class="table-action" href="/projects">Tout voir</a>
 			</div>
 			<div class="panel-body table-wrap">
 				<table class="hub-table">
 					<thead>
 						<tr>
-							<th>Project</th>
-							<th>Status</th>
-							<th>Main port</th>
+							<th>Projet</th>
+							<th>Statut</th>
+							<th>Port principal</th>
 							<th></th>
 						</tr>
 					</thead>
@@ -79,13 +79,13 @@ templ dashboardBody(data DashboardData) {
 								<td><a class="project-name" href={ "/projects/" + item.Slug }>{ item.Name }</a></td>
 								<td><span class={ "badge " + item.StatusClass }>{ item.StatusLabel }</span></td>
 								<td><code class="hub-code">{ item.MainPort }</code></td>
-								<td><a class="table-action" href={ "/projects/" + item.Slug }>View</a></td>
+								<td><a class="table-action" href={ "/projects/" + item.Slug }>Voir</a></td>
 							</tr>
 						}
 						if len(data.Projects) == 0 {
 							<tr>
 								<td colspan="4">
-									<div class="empty-state">No active projects yet.</div>
+									<div class="empty-state">Aucun projet actif pour le moment.</div>
 								</td>
 							</tr>
 						}
@@ -96,9 +96,9 @@ templ dashboardBody(data DashboardData) {
 		<section class="panel activity">
 			<div class="panel-head">
 				<div>
-					<h2>Recent activity</h2>
+					<h2>Activité récente</h2>
 				</div>
-				<a class="table-action" href="/activity">View all</a>
+				<a class="table-action" href="/activity">Tout voir</a>
 			</div>
 			<ol>
 				for _, item := range data.Recent {
@@ -113,7 +113,7 @@ templ dashboardBody(data DashboardData) {
 					</li>
 				}
 				if len(data.Recent) == 0 {
-					<li><span>No activity recorded yet.</span></li>
+					<li><span>Aucune activité enregistrée pour le moment.</span></li>
 				}
 			</ol>
 		</section>
@@ -131,42 +131,42 @@ templ ActivityPage(data ActivityData) {
 templ activityBody(data ActivityData) {
 	<div class="page-heading">
 		<div>
-			<h1>Activity</h1>
-			<p>Audit trail of project, runtime, port, intern, and session events.</p>
+			<h1>Activité</h1>
+			<p>Historique des événements projets, exécution, ports, stagiaires et sessions.</p>
 		</div>
 	</div>
 	<section class="panel">
 		<form class="toolbar" method="get">
-			<input name="q" value={ data.Search } type="search" placeholder="Search entity or detail" aria-label="Search activity"/>
-			<select name="category" aria-label="Filter by category" onchange="this.form.requestSubmit()">
-				<option value="" selected?={ data.Category == "" }>All categories</option>
+			<input name="q" value={ data.Search } type="search" placeholder="Rechercher une entité ou un détail" aria-label="Rechercher dans l'activité"/>
+			<select name="category" aria-label="Filtrer par catégorie" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ data.Category == "" }>Toutes les catégories</option>
 				for _, category := range data.Categories {
 					<option value={ category } selected?={ data.Category == category }>{ CategoryName(category) }</option>
 				}
 			</select>
-			<select name="event_type" aria-label="Filter by event" onchange="this.form.requestSubmit()">
-				<option value="" selected?={ data.EventType == "" }>All events</option>
+			<select name="event_type" aria-label="Filtrer par événement" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ data.EventType == "" }>Tous les événements</option>
 				for _, event := range data.EventTypes {
 					<option value={ event } selected?={ data.EventType == event }>{ event }</option>
 				}
 			</select>
-			<select name="outcome" aria-label="Filter by outcome" onchange="this.form.requestSubmit()">
-				<option value="" selected?={ data.Outcome == "" }>All outcomes</option>
-				<option value="success" selected?={ data.Outcome == "success" }>Success</option>
-				<option value="failure" selected?={ data.Outcome == "failure" }>Failure</option>
+			<select name="outcome" aria-label="Filtrer par résultat" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ data.Outcome == "" }>Tous les résultats</option>
+				<option value="success" selected?={ data.Outcome == "success" }>Succès</option>
+				<option value="failure" selected?={ data.Outcome == "failure" }>Échec</option>
 			</select>
-			<button class="button secondary" type="submit">Search</button>
+			<button class="button secondary" type="submit">Rechercher</button>
 		</form>
 		<div class="panel-body table-wrap">
 			<table class="hub-table">
 				<thead>
 					<tr>
-						<th>Time</th>
-						<th>Event</th>
-						<th>Entity</th>
-						<th>Actor</th>
-						<th>Outcome</th>
-						<th>Detail</th>
+						<th>Heure</th>
+						<th>Événement</th>
+						<th>Entité</th>
+						<th>Auteur</th>
+						<th>Résultat</th>
+						<th>Détail</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -186,7 +186,7 @@ templ activityBody(data ActivityData) {
 					if len(data.Items) == 0 {
 						<tr>
 							<td colspan="6">
-								<div class="empty-state">No activity matches these filters.</div>
+								<div class="empty-state">Aucune activité ne correspond à ces filtres.</div>
 							</td>
 						</tr>
 					}
@@ -201,7 +201,7 @@ templ activityBody(data ActivityData) {
 					<input type="hidden" name="event_type" value={ data.EventType }/>
 					<input type="hidden" name="outcome" value={ data.Outcome }/>
 					<input type="hidden" name="page" value={ strconv.Itoa(data.Page - 1) }/>
-					<button class="button secondary" type="submit">← Newer</button>
+					<button class="button secondary" type="submit">← Plus récents</button>
 				</form>
 			}
 			if data.HasNext {
@@ -211,7 +211,7 @@ templ activityBody(data ActivityData) {
 					<input type="hidden" name="event_type" value={ data.EventType }/>
 					<input type="hidden" name="outcome" value={ data.Outcome }/>
 					<input type="hidden" name="page" value={ strconv.Itoa(data.Page + 1) }/>
-					<button class="button secondary" type="submit">Older →</button>
+					<button class="button secondary" type="submit">Plus anciens →</button>
 				</form>
 			}
 		</div>
@@ -220,49 +220,50 @@ templ activityBody(data ActivityData) {
 
 templ placeholderBody(title string) {
 	<div class="space-y-1">
-		<h1 class="text-2xl font-bold text-brand-navy">{ title }</h1>
-		<p class="text-brand-muted text-sm">This page is ready for its feature.</p>
+		<h1 class="text-2xl font-bold text-brand-navy dark:text-white">{ title }</h1>
+		<p class="text-brand-muted text-sm">Cette page attend sa fonctionnalité.</p>
 	</div>
 }
 
 templ LoginPage(errorMessage string) {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-brand-ground">
+	<html lang="fr" class="h-full bg-brand-ground dark:bg-slate-900">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>Sign in · PortD</title>
+			<title>Connexion · PortD</title>
+			@layouts.ThemeScript()
 			<link rel="stylesheet" href="/static/app.css"/>
 			@layouts.HeadScripts()
 		</head>
-		<body class="min-h-full font-sans text-sm text-brand-ink antialiased bg-brand-ground flex items-center justify-center p-4">
-			<main class="w-full max-w-sm bg-white border border-brand-line rounded-lg p-6 shadow-sm">
-				<h1 class="text-2xl font-bold text-brand-navy">PortD</h1>
-				<p class="text-brand-muted text-sm mt-0.5 mb-5">Signing in to manage internship projects.</p>
+		<body class="min-h-full font-sans text-sm text-brand-ink antialiased bg-brand-ground flex items-center justify-center p-4 dark:bg-slate-900 dark:text-slate-200">
+			<main class="w-full max-w-sm bg-white border border-brand-line rounded-lg p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+				<h1 class="text-2xl font-bold text-brand-navy dark:text-white">PortD</h1>
+				<p class="text-brand-muted text-sm mt-0.5 mb-5 dark:text-slate-400">Connectez-vous pour gérer les projets de stage.</p>
 				if errorMessage != "" {
-					<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
+					<div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium dark:bg-red-950 dark:border-red-800 dark:text-red-300" role="alert">
 						{ errorMessage }
 					</div>
 				}
 				<form method="post" action="/login" class="space-y-4">
-					<label class="block text-sm font-bold text-slate-700">
-						Username
+					<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+						Nom d'utilisateur
 						<input
 							name="username"
 							required
 							autocomplete="username"
-							class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors"
+							class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200"
 						/>
 					</label>
-					<label class="block text-sm font-bold text-slate-700">
-						Password
+					<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+						Mot de passe
 						@components.PasswordField("password", "current-password", true)
 					</label>
 					<button
 						type="submit"
 						class="w-full mt-2 inline-flex items-center justify-center min-h-[38px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
 					>
-						Sign in
+						Se connecter
 					</button>
 				</form>
 			</main>
@@ -276,8 +277,8 @@ templ ProfilePage(data ProfileData) {
 
 templ profileBody(data ProfileData) {
 	<div class="space-y-1 mb-6">
-		<h1 class="text-2xl font-bold text-brand-navy">Profile</h1>
-		<p class="text-brand-muted text-sm">Signed in as <strong>{ data.Role }</strong>.</p>
+		<h1 class="text-2xl font-bold text-brand-navy dark:text-white">Profil</h1>
+		<p class="text-brand-muted text-sm dark:text-slate-400">Connecté en tant que <strong>{ data.Role }</strong>.</p>
 	</div>
 	if data.Error != "" {
 		<div class="max-w-xl p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
@@ -285,41 +286,41 @@ templ profileBody(data ProfileData) {
 		</div>
 	}
 	if data.IsAdmin {
-		<section class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4">
+		<section class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4 dark:bg-slate-800 dark:border-slate-700">
 			<dl class="space-y-3">
 				<div>
-					<dt class="text-xs font-bold text-slate-500 uppercase tracking-wider">Username</dt>
-					<dd class="mt-0.5 text-sm font-bold text-brand-navy">{ data.Username }</dd>
+					<dt class="text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Nom d'utilisateur</dt>
+					<dd class="mt-0.5 text-sm font-bold text-brand-navy dark:text-white">{ data.Username }</dd>
 				</div>
 				<div>
-					<dt class="text-xs font-bold text-slate-500 uppercase tracking-wider">Role</dt>
-					<dd class="mt-0.5 text-sm text-slate-700">{ data.Role }</dd>
+					<dt class="text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Rôle</dt>
+					<dd class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{ data.Role }</dd>
 				</div>
 			</dl>
-			<p class="text-xs text-slate-400">The admin account is managed via server configuration.</p>
+			<p class="text-xs text-slate-400">Le compte administrateur est géré par la configuration du serveur.</p>
 			<form method="post" action="/logout">
-				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer">Sign out</button>
+				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200">Se déconnecter</button>
 			</form>
 		</section>
 	} else {
-		<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4" method="post" action="/profile" x-data="{ busy: false }" @submit="busy = true">
-			<label class="block text-sm font-bold text-slate-700">
-				Full name
-				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="full_name" required value={ data.FullName }/>
+		<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4 dark:bg-slate-800 dark:border-slate-700" method="post" action="/profile" x-data="{ busy: false }" @submit="busy = true">
+			<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+				Nom complet
+				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="full_name" required value={ data.FullName }/>
 			</label>
-			<label class="block text-sm font-bold text-slate-700">
-				Username
-				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="identifier" required value={ data.Username }/>
+			<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+				Nom d'utilisateur
+				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="identifier" required value={ data.Username }/>
 			</label>
-			<label class="block text-sm font-bold text-slate-700">
-				Email
-				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" type="email" name="email" value={ data.Email }/>
+			<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+				E-mail
+				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" type="email" name="email" value={ data.Email }/>
 			</label>
-			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save changes</button>
+			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Enregistrer</button>
 		</form>
-		<section class="max-w-xl mt-4 bg-white border border-brand-line rounded-lg p-6 shadow-sm">
+		<section class="max-w-xl mt-4 bg-white border border-brand-line rounded-lg p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 			<form method="post" action="/logout">
-				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer">Sign out</button>
+				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200">Se déconnecter</button>
 			</form>
 		</section>
 	}
@@ -332,51 +333,51 @@ templ InternsPage(title string, path string, search string, state string, items 
 templ internsBody(search string, state string, items []InternListItem) {
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
 		<div>
-			<h1 class="text-2xl font-bold text-brand-navy">Interns</h1>
-			<p class="text-brand-muted text-sm mt-0.5">Create intern accounts and see the projects they own.</p>
+			<h1 class="text-2xl font-bold text-brand-navy dark:text-white">Stagiaires</h1>
+			<p class="text-brand-muted text-sm mt-0.5 dark:text-slate-400">Créez des comptes stagiaires et voyez leurs projets.</p>
 		</div>
-		<a class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white text-sm font-bold rounded-lg transition-colors shadow-sm cursor-pointer" href="/interns/new">+ Add intern</a>
+		<a class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white text-sm font-bold rounded-lg transition-colors shadow-sm cursor-pointer" href="/interns/new">+ Ajouter un stagiaire</a>
 	</div>
-	<section class="bg-white border border-brand-line rounded-lg shadow-sm overflow-hidden">
-		<form class="flex flex-wrap items-center gap-3 p-4 border-b border-brand-line" method="get" x-target="intern-table">
-			<input class="w-full max-w-md flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 placeholder-slate-400 font-normal transition-colors" name="q" value={ search } placeholder="Search interns" aria-label="Search interns"/>
-			<select name="state" aria-label="Filter by activity state" onchange="this.form.requestSubmit()" class="px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer">
-				<option value="all" selected?={ state == "" || state == "all" }>All states</option>
-				<option value="active" selected?={ state == "active" }>Active</option>
-				<option value="inactive" selected?={ state == "inactive" }>Inactive</option>
+	<section class="bg-white border border-brand-line rounded-lg shadow-sm overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+		<form class="flex flex-wrap items-center gap-3 p-4 border-b border-brand-line dark:border-slate-700" method="get" x-target="intern-table">
+			<input class="w-full max-w-md flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 placeholder-slate-400 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="q" value={ search } placeholder="Rechercher des stagiaires" aria-label="Rechercher des stagiaires"/>
+			<select name="state" aria-label="Filtrer par état" onchange="this.form.requestSubmit()" class="px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
+				<option value="all" selected?={ state == "" || state == "all" }>Tous les états</option>
+				<option value="active" selected?={ state == "active" }>Actif</option>
+				<option value="inactive" selected?={ state == "inactive" }>Inactif</option>
 			</select>
-			<button class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer">Search</button>
+			<button class="inline-flex items-center justify-center min-h-[36px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200">Rechercher</button>
 		</form>
 		<div id="intern-table" class="overflow-x-auto">
 			<table class="w-full text-left border-collapse">
 				<thead>
-					<tr class="border-b border-brand-line bg-slate-50/75">
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Username</th>
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
-						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">State</th>
+					<tr class="border-b border-brand-line bg-slate-50/75 dark:border-slate-700 dark:bg-slate-900/60">
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Nom</th>
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Nom d'utilisateur</th>
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">E-mail</th>
+						<th class="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">État</th>
 					</tr>
 				</thead>
-				<tbody class="divide-y divide-slate-100">
+				<tbody class="divide-y divide-slate-100 dark:divide-slate-700">
 					for _, item := range items {
-						<tr class="hover:bg-slate-50/60 transition-colors">
-							<td class="px-5 py-3.5 text-sm font-bold text-brand-navy whitespace-nowrap">
-								<a class="text-brand-blue hover:underline" href={ "/interns/" + item.ID }>{ item.FullName }</a>
+						<tr class="hover:bg-slate-50/60 transition-colors dark:hover:bg-slate-700/40">
+							<td class="px-5 py-3.5 text-sm font-bold text-brand-navy whitespace-nowrap dark:text-slate-100">
+								<a class="text-brand-blue hover:underline dark:text-blue-400" href={ "/interns/" + item.ID }>{ item.FullName }</a>
 							</td>
 							<td class="px-5 py-3.5 text-sm whitespace-nowrap">
-								<code class="font-mono text-xs px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-700">{ item.Username }</code>
+								<code class="font-mono text-xs px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-700 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-300">{ item.Username }</code>
 							</td>
-							<td class="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">{ item.Email }</td>
+							<td class="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap dark:text-slate-400">{ item.Email }</td>
 							<td class="px-5 py-3.5 text-sm whitespace-nowrap">
 								if item.Active {
-									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green dark:bg-green-950 dark:text-green-300">
 										<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-										Active
+										Actif
 									</span>
 								} else {
-									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
 										<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-										Inactive
+										Inactif
 									</span>
 								}
 							</td>
@@ -384,7 +385,7 @@ templ internsBody(search string, state string, items []InternListItem) {
 					}
 					if len(items) == 0 {
 						<tr>
-							<td colspan="4" class="px-5 py-12 text-center text-brand-muted text-sm">No interns found.</td>
+							<td colspan="4" class="px-5 py-12 text-center text-brand-muted text-sm dark:text-slate-400">Aucun stagiaire trouvé.</td>
 						</tr>
 					}
 				</tbody>
@@ -400,43 +401,43 @@ templ ProjectsPage(title string, path string, search string, lifecycle string, l
 templ projectsBody(search string, lifecycle string, live string, items []ProjectListItem, detected []DetectItem, showDetect bool) {
 	<div class="page-heading">
 		<div>
-			<h1>Projects</h1>
-			<p>Search the central registry and open an available internal URL.</p>
+			<h1>Projets</h1>
+			<p>Recherchez dans le registre central et ouvrez une URL interne disponible.</p>
 		</div>
 		<div>
-			<a class="button secondary" href="/projects/detect">Detect from disk</a>
-			<a class="button primary" href="/projects/new">+ Add project</a>
+			<a class="button secondary" href="/projects/detect">Détecter sur le disque</a>
+			<a class="button primary" href="/projects/new">+ Ajouter un projet</a>
 		</div>
 	</div>
 	<section class="panel">
 		<form class="toolbar" method="get" x-target="project-table">
-			<input name="q" value={ search } type="search" placeholder="Search projects, owners, or ports" aria-label="Search projects"/>
-			<select name="lifecycle_status" aria-label="Filter by lifecycle" onchange="this.form.requestSubmit()">
-				<option value="" selected?={ lifecycle == "" }>All lifecycles</option>
-				<option value="draft" selected?={ lifecycle == "draft" }>Draft</option>
-				<option value="ready" selected?={ lifecycle == "ready" }>Ready</option>
-				<option value="running" selected?={ lifecycle == "running" }>Running</option>
-				<option value="stopped" selected?={ lifecycle == "stopped" }>Stopped</option>
-				<option value="failed" selected?={ lifecycle == "failed" }>Failed</option>
-				<option value="archived" selected?={ lifecycle == "archived" }>Archived</option>
+			<input name="q" value={ search } type="search" placeholder="Rechercher projets, responsables ou ports" aria-label="Rechercher des projets"/>
+			<select name="lifecycle_status" aria-label="Filtrer par cycle de vie" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ lifecycle == "" }>Tous les cycles de vie</option>
+				<option value="draft" selected?={ lifecycle == "draft" }>Brouillon</option>
+				<option value="ready" selected?={ lifecycle == "ready" }>Prêt</option>
+				<option value="running" selected?={ lifecycle == "running" }>En cours</option>
+				<option value="stopped" selected?={ lifecycle == "stopped" }>Arrêté</option>
+				<option value="failed" selected?={ lifecycle == "failed" }>Échoué</option>
+				<option value="archived" selected?={ lifecycle == "archived" }>Archivé</option>
 			</select>
-			<select name="is_live" aria-label="Filter by live state" onchange="this.form.requestSubmit()">
-				<option value="" selected?={ live == "" }>All statuses</option>
-				<option value="true" selected?={ live == "true" }>Running</option>
-				<option value="false" selected?={ live == "false" }>Down</option>
+			<select name="is_live" aria-label="Filtrer par état" onchange="this.form.requestSubmit()">
+				<option value="" selected?={ live == "" }>Tous les statuts</option>
+				<option value="true" selected?={ live == "true" }>En cours</option>
+				<option value="false" selected?={ live == "false" }>Hors ligne</option>
 			</select>
-			<button class="button secondary" type="submit">Search</button>
+			<button class="button secondary" type="submit">Rechercher</button>
 		</form>
 		<div class="panel-body table-wrap" id="project-table">
 			<table class="hub-table">
 				<thead>
 					<tr>
-						<th>Project</th>
-						<th>Intern</th>
-						<th>Status</th>
-						<th>Main port</th>
-						<th>Tracking</th>
-						<th>Internal URL</th>
+						<th>Projet</th>
+						<th>Stagiaire</th>
+						<th>Statut</th>
+						<th>Port principal</th>
+						<th>Suivi</th>
+						<th>URL interne</th>
 						<th></th>
 					</tr>
 				</thead>
@@ -450,7 +451,7 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 							<td>
 								<span class={ "badge " + item.StatusClass }>{ item.StatusLabel }</span>
 								if item.MissingStartup {
-									<span class="badge warning">No startup file</span>
+									<span class="badge warning">Sans fichier de démarrage</span>
 								}
 							</td>
 							<td>
@@ -464,14 +465,14 @@ templ projectsBody(search string, lifecycle string, live string, items []Project
 								<a class="table-action" href={ item.URL } target="_blank" rel="noreferrer">{ item.URLLabel } ↗</a>
 							</td>
 							<td>
-								<a class="table-action" href={ "/projects/" + item.Slug }>View</a>
+								<a class="table-action" href={ "/projects/" + item.Slug }>Voir</a>
 							</td>
 						</tr>
 					}
 					if len(items) == 0 {
 						<tr>
 							<td colspan="7">
-								<div class="empty-state">No projects match your search.</div>
+								<div class="empty-state">Aucun projet ne correspond à votre recherche.</div>
 							</td>
 						</tr>
 					}
@@ -490,18 +491,18 @@ templ detectModal(detected []DetectItem) {
 		<div class="detect-dialog panel" role="dialog" aria-modal="true" aria-labelledby="detect-title">
 			<div class="panel-head">
 				<div>
-					<h2 id="detect-title">Detected projects</h2>
-					<p>Select the folders to add. Already-registered ones are greyed out.</p>
+					<h2 id="detect-title">Projets détectés</h2>
+					<p>Sélectionnez les dossiers à ajouter. Ceux déjà enregistrés sont grisés.</p>
 				</div>
-				<a class="table-action" href="/projects" aria-label="Close">✕</a>
+				<a class="table-action" href="/projects" aria-label="Fermer">✕</a>
 			</div>
 			<form method="post" action="/projects/detect" x-ref="detectForm">
 				<div class="detect-toolbar">
 					<input
 						type="search"
 						name="detect-q"
-						placeholder="Search folders"
-						aria-label="Search detected folders"
+						placeholder="Rechercher des dossiers"
+						aria-label="Rechercher parmi les dossiers détectés"
 						autofocus
 						x-model="query"
 					/>
@@ -509,12 +510,12 @@ templ detectModal(detected []DetectItem) {
 						class="button secondary"
 						type="button"
 						@click="$refs.detectForm.querySelectorAll('input[name=slugs]:not(:disabled)').forEach(c => c.checked = true)"
-					>Select all</button>
+					>Tout sélectionner</button>
 					<button
 						class="button secondary"
 						type="button"
 						@click="$refs.detectForm.querySelectorAll('input[name=slugs]:not(:disabled)').forEach(c => c.checked = false)"
-					>Unselect all</button>
+					>Tout désélectionner</button>
 				</div>
 				<ul class="detect-list">
 					for _, item := range detected {
@@ -533,17 +534,17 @@ templ detectModal(detected []DetectItem) {
 								<code class="hub-code">{ item.Slug }</code>
 							</label>
 							if item.Exists {
-								<span class="badge neutral">Already added</span>
+								<span class="badge neutral">Déjà ajouté</span>
 							}
 						</li>
 					}
 					if len(detected) == 0 {
-						<li class="detect-empty">No folders found on disk.</li>
+						<li class="detect-empty">Aucun dossier trouvé sur le disque.</li>
 					}
 				</ul>
 				<div class="detect-actions">
-					<a class="button secondary" href="/projects">Cancel</a>
-					<button class="button primary" type="submit">Add selected</button>
+					<a class="button secondary" href="/projects">Annuler</a>
+					<button class="button primary" type="submit">Ajouter la sélection</button>
 				</div>
 			</form>
 		</div>
@@ -551,29 +552,29 @@ templ detectModal(detected []DetectItem) {
 }
 
 templ PortsPage(data PortsPageData) {
-	@layouts.Shell("Port management", data.Path, portsBody(data))
+	@layouts.Shell("Gestion des ports", data.Path, portsBody(data))
 }
 
 templ portsBody(data PortsPageData) {
 	<div class="page-heading ports-page-heading">
 		<div>
-			<h1>Port management</h1>
-			<p>See which ports are in use and which project owns them.</p>
+			<h1>Gestion des ports</h1>
+			<p>Voyez quels ports sont utilisés et à quel projet ils appartiennent.</p>
 		</div>
-		<a class="button secondary" href="/ports">Refresh scan</a>
+		<a class="button secondary" href="/ports">Actualiser</a>
 	</div>
 	<section class="panel ports-panel">
 		<div class="ports-panel-intro">
 			<div>
-				<strong>Current scan</strong>
-				<p>Visibility only. PortD does not resolve conflicts automatically.</p>
+				<strong>Analyse actuelle</strong>
+				<p>Lecture seule. PortD ne résout pas les conflits automatiquement.</p>
 			</div>
 			<div class="ports-scan-meta">
 				if data.CheckedAt != "" {
-					<span>Last checked <strong>{ data.CheckedAt }</strong></span>
+					<span>Dernière vérification <strong>{ data.CheckedAt }</strong></span>
 				}
 				if data.Unknown > 0 {
-					<span class="badge warning">{ data.Unknown } unregistered</span>
+					<span class="badge warning">{ data.Unknown } non enregistrés</span>
 				}
 			</div>
 		</div>
@@ -582,10 +583,10 @@ templ portsBody(data PortsPageData) {
 				<thead>
 					<tr>
 						<th>Port</th>
-						<th>Process</th>
-						<th>Registered project</th>
-						<th>Intern</th>
-						<th>State</th>
+						<th>Processus</th>
+						<th>Projet enregistré</th>
+						<th>Stagiaire</th>
+						<th>État</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -603,9 +604,9 @@ templ portsBody(data PortsPageData) {
 							<td>{ row.Interns }</td>
 							<td>
 								if row.Registered {
-									<span class="badge running">Registered</span>
+									<span class="badge running">Enregistré</span>
 								} else {
-									<span class="badge warning">Unregistered</span>
+									<span class="badge warning">Non enregistré</span>
 								}
 							</td>
 						</tr>
@@ -613,7 +614,7 @@ templ portsBody(data PortsPageData) {
 					if len(data.Rows) == 0 {
 						<tr>
 							<td colspan="5">
-								<div class="empty-state">No port data available. Click Refresh to scan.</div>
+								<div class="empty-state">Aucune donnée de port. Cliquez sur Actualiser pour analyser.</div>
 							</td>
 						</tr>
 					}
@@ -624,12 +625,12 @@ templ portsBody(data PortsPageData) {
 	<section class="panel ports-panel">
 		<div class="ports-panel-intro">
 			<div>
-				<strong>Reserved, not listening</strong>
-				<p>Allocated to a project but no process found on the OS. Usually a stopped project.</p>
+				<strong>Réservés, sans écoute</strong>
+				<p>Attribués à un projet mais aucun processus détecté. Généralement un projet arrêté.</p>
 			</div>
 			<div class="ports-scan-meta">
 				if len(data.Reserved) > 0 {
-					<span class="badge neutral">{ strconv.Itoa(len(data.Reserved)) } reserved</span>
+					<span class="badge neutral">{ strconv.Itoa(len(data.Reserved)) } réservés</span>
 				}
 			</div>
 		</div>
@@ -638,9 +639,9 @@ templ portsBody(data PortsPageData) {
 				<thead>
 					<tr>
 						<th>Port</th>
-						<th>Registered project</th>
-						<th>Intern</th>
-						<th>State</th>
+						<th>Projet enregistré</th>
+						<th>Stagiaire</th>
+						<th>État</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -651,13 +652,13 @@ templ portsBody(data PortsPageData) {
 								<a class="project-name" href={ "/projects/" + row.ProjectSlug }>{ row.Project }</a>
 							</td>
 							<td>{ row.Interns }</td>
-							<td><span class="badge neutral">Reserved</span></td>
+							<td><span class="badge neutral">Réservé</span></td>
 						</tr>
 					}
 					if len(data.Reserved) == 0 {
 						<tr>
 							<td colspan="4">
-								<div class="empty-state">No reserved ports. Every allocated port is listening.</div>
+								<div class="empty-state">Aucun port réservé. Tous les ports attribués sont en écoute.</div>
 							</td>
 						</tr>
 					}
@@ -677,7 +678,7 @@ templ ProjectDetailPage(data ProjectDetailData) {
 
 templ projectDetailBody(data ProjectDetailData) {
 	<div class="project-detail">
-		<a class="breadcrumb" href="/projects">Projects / <span>{ data.Name }</span></a>
+		<a class="breadcrumb" href="/projects">Projets / <span>{ data.Name }</span></a>
 		<div class="project-hero">
 			<div>
 				<div class="title-row">
@@ -686,30 +687,30 @@ templ projectDetailBody(data ProjectDetailData) {
 					<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
 				</div>
 				<a href={ data.URL } target="_blank" rel="noreferrer">{ data.URLLabel } ↗</a>
-				<p class="project-hero-meta">Owned by { data.Owners } · Main port <code class="hub-code">{ data.MainPort }</code></p>
+				<p class="project-hero-meta">Géré par { data.Owners } · Port principal <code class="hub-code">{ data.MainPort }</code></p>
 				if data.Description != "" {
 					<p>{ data.Description }</p>
 				}
 			</div>
 			<div class="project-hero-actions">
-				<a class="button secondary" href={ "/projects/" + data.Slug + "/edit" }>Edit</a>
-				<a class="button primary" href={ data.URL } target="_blank" rel="noreferrer">Open project ↗</a>
+				<a class="button secondary" href={ "/projects/" + data.Slug + "/edit" }>Modifier</a>
+				<a class="button primary" href={ data.URL } target="_blank" rel="noreferrer">Ouvrir le projet ↗</a>
 			</div>
 		</div>
 		<div class="detail-grid">
 			<section class="panel detail-panel">
-				<div class="panel-head"><h2>Project details</h2></div>
+				<div class="panel-head"><h2>Détails du projet</h2></div>
 				<dl class="hub-dl">
 					<div>
-						<dt>Owner</dt>
+						<dt>Responsable</dt>
 						<dd>{ data.Owners }</dd>
 					</div>
 					<div>
-						<dt>Created</dt>
+						<dt>Créé</dt>
 						<dd>{ data.CreatedAt }</dd>
 					</div>
 					<div>
-						<dt>Last updated</dt>
+						<dt>Dernière mise à jour</dt>
 						<dd>{ data.UpdatedAt }</dd>
 					</div>
 				</dl>
@@ -717,8 +718,8 @@ templ projectDetailBody(data ProjectDetailData) {
 			<section class="panel detail-panel">
 				<div class="panel-head">
 					<div>
-						<h2>Runtime</h2>
-						<p>Start or stop the project using its platform startup file.</p>
+						<h2>Exécution</h2>
+						<p>Démarrez ou arrêtez le projet avec son fichier de démarrage.</p>
 					</div>
 					<span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span>
 				</div>
@@ -728,59 +729,69 @@ templ projectDetailBody(data ProjectDetailData) {
 					}
 					<div class="runtime-control-row">
 						<div>
-							<strong>{ data.RuntimeState }</strong>
-							if data.RuntimePID != "0" {
-								<p>Process <code class="hub-code">#{ data.RuntimePID }</code> is managed by PortD.</p>
+							if data.RuntimeState == "running" {
+								<strong>En cours</strong>
+							} else if data.RuntimeState == "starting" {
+								<strong>Démarrage</strong>
+							} else if data.RuntimeState == "stopping" {
+								<strong>Arrêt</strong>
+							} else if data.RuntimeState == "failed" {
+								<strong>Échoué</strong>
 							} else {
-								<p>No managed process is running.</p>
+								<strong>Arrêté</strong>
+							}
+							if data.RuntimePID != "0" {
+								<p>Le processus <code class="hub-code">n°{ data.RuntimePID }</code> est géré par PortD.</p>
+							} else {
+								<p>Aucun processus géré en cours.</p>
 							}
 						</div>
 						if data.RuntimeState == "running" || data.RuntimeState == "stopping" {
 							<form method="post" action={ "/projects/" + data.Slug + "/runtime/stop" } x-data="{ busy: false }" @submit="busy = true">
 								<button class="button danger" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'stopping'">
-									<span x-show="!busy">Stop project</span><span x-show="busy" x-cloak>Stopping…</span>
+									<span x-show="!busy">Arrêter le projet</span><span x-show="busy" x-cloak>Arrêt…</span>
 								</button>
 							</form>
 						} else {
 							<form method="post" action={ "/projects/" + data.Slug + "/runtime/start" } x-data="{ busy: false }" @submit="busy = true">
 								<button class="button primary" type="submit" :disabled="busy || '{ data.RuntimeState }' === 'starting'">
-									<span x-show="!busy">Start project</span><span x-show="busy" x-cloak>Starting…</span>
+									<span x-show="!busy">Démarrer le projet</span><span x-show="busy" x-cloak>Démarrage…</span>
 								</button>
 							</form>
 						}
 					</div>
 					<div class="runtime-file">
-						<span>Execution file</span>
+						<span>Fichier d'exécution</span>
 						<code class="hub-code">{ data.RuntimeFile }</code>
 						if data.MissingStartup {
-							<span class="badge warning">No start.sh or start.bat in the project directory</span>
+							<span class="badge warning">Aucun start.sh ou start.bat dans le dossier du projet</span>
 						}
 						<form class="runtime-configure" method="post" action={ "/projects/" + data.Slug + "/runtime/configure" }>
-							<label class="sr-only" for="startup-command">Startup file path</label>
-							<input id="startup-command" name="startup_command" value={ data.RuntimeFile } placeholder="start.sh or start.bat" autocomplete="off"/>
-							<button class="button secondary" type="submit">Save file</button>
+							<label class="sr-only" for="startup-command">Chemin du fichier de démarrage</label>
+							<input id="startup-command" name="startup_command" value={ data.RuntimeFile } placeholder="start.sh ou start.bat" autocomplete="off"/>
+							<button class="button secondary" type="submit">Enregistrer</button>
 						</form>
 						if data.RuntimeState == "failed" {
-							<p class="runtime-error">The process exited unexpectedly. Check the file and project logs before trying again.</p>
+							<p class="runtime-error">Le processus s'est arrêté de façon inattendue. Vérifiez le fichier et les journaux avant de réessayer.</p>
 						}
 					</div>
 				</div>
 				<dl class="hub-dl four-up">
 					<div>
-						<dt>Main port</dt>
+						<dt>Port principal</dt>
 						<dd><code class="hub-code">{ data.MainPort }</code></dd>
 					</div>
 					<div>
-						<dt>Status</dt>
+						<dt>Statut</dt>
 						<dd><span class={ "badge " + data.StatusClass }>{ data.StatusLabel }</span></dd>
 					</div>
 					<div>
-						<dt>Observed</dt>
+						<dt>Observé</dt>
 						<dd>
 							if data.IsLive {
-								<span class="badge running">Live</span>
+								<span class="badge running">En ligne</span>
 							} else {
-								<span class="badge neutral">Not live</span>
+								<span class="badge neutral">Hors ligne</span>
 							}
 						</dd>
 					</div>
@@ -790,29 +801,29 @@ templ projectDetailBody(data ProjectDetailData) {
 		<section class="panel detail-panel access-panel" x-data="{ selectedFramework: '', copied: false }">
 			<div class="panel-head">
 				<div>
-					<h2>Project access</h2>
-					<p>Choose the URL that matches how your application handles its base path.</p>
+					<h2>Accès au projet</h2>
+					<p>Choisissez l'URL qui correspond à la gestion du chemin de base par votre application.</p>
 				</div>
 				<span class="badge neutral">{ data.Access.ModeLabel }</span>
 			</div>
 			<div class="panel-body panel-body-padded">
 				<div class="access-options">
 					<div class="access-option" data-active?={ data.Access.Mode == "direct" }>
-						<div class="access-option-head"><strong>Direct</strong><span class="state-pill ready">No app changes</span></div>
+						<div class="access-option-head"><strong>Direct</strong><span class="state-pill ready">Sans modification</span></div>
 						<code class="hub-code access-url">{ data.Access.DirectURL }</code>
-						<p>Uses the server and main port directly. No Caddy, DNS, or base-path configuration is required.</p>
-						<a class="button secondary" href={ data.Access.DirectURL } target="_blank" rel="noreferrer">Open direct URL ↗</a>
+						<p>Utilise directement le serveur et le port principal. Aucune configuration Caddy, DNS ou chemin de base requise.</p>
+						<a class="button secondary" href={ data.Access.DirectURL } target="_blank" rel="noreferrer">Ouvrir l'URL directe ↗</a>
 					</div>
 					<div class="access-option" data-active?={ data.Access.Mode == "proxied" }>
-						<div class="access-option-head"><strong>Proxied</strong><span class="state-pill ready">Path-based</span></div>
+						<div class="access-option-head"><strong>Via proxy</strong><span class="state-pill ready">Basée sur le chemin</span></div>
 						<code class="hub-code access-url">{ data.Access.ProxiedURL }</code>
-						<p>Uses the shared PortD URL. Configure your app's base path for in-app navigation and assets.</p>
-						<a class="button secondary" href={ data.Access.ProxiedURL } target="_blank" rel="noreferrer">Open proxied URL ↗</a>
+						<p>Utilise l'URL PortD partagée. Configurez le chemin de base pour la navigation et les ressources.</p>
+						<a class="button secondary" href={ data.Access.ProxiedURL } target="_blank" rel="noreferrer">Ouvrir l'URL proxy ↗</a>
 					</div>
 				</div>
 				<div class="quickstarts">
 					<div class="panel-head access-subhead">
-						<div><h3>Framework quickstarts</h3><p>Select your framework to see the one-line setup.</p></div>
+						<div><h3>Démarrages rapides par framework</h3><p>Sélectionnez votre framework pour voir la configuration en une ligne.</p></div>
 					</div>
 					<div class="quickstart-grid">
 						for _, item := range data.Access.Quickstarts {
@@ -820,13 +831,13 @@ templ projectDetailBody(data ProjectDetailData) {
 								<div class="quickstart-title">
 									<strong>{ item.Name }</strong>
 									if item.NoConfig {
-										<span class="state-pill ready">No config</span>
+										<span class="state-pill ready">Sans config</span>
 									} else {
 										<span class="state-pill draft">Config</span>
 									}
 								</div>
 								<p>{ item.Description }</p>
-								<span class="quickstart-action">View setup →</span>
+								<span class="quickstart-action">Voir la configuration →</span>
 							</button>
 						}
 					</div>
@@ -835,8 +846,8 @@ templ projectDetailBody(data ProjectDetailData) {
 					for _, item := range data.Access.Quickstarts {
 						<div class="quickstart-instruction" x-show={ "selectedFramework === '" + item.Key + "'" }>
 							<div class="quickstart-instruction-head">
-								<div><strong>{ item.Name }</strong><p>{ item.Description }</p><span class="quickstart-file">Edit <code>{ item.File }</code></span></div>
-								<button class="table-action" type="button" @click="navigator.clipboard.writeText($el.closest('.quickstart-instruction').querySelector('.quickstart-code').textContent); copied = true">Copy setup</button>
+								<div><strong>{ item.Name }</strong><p>{ item.Description }</p><span class="quickstart-file">Modifier <code>{ item.File }</code></span></div>
+								<button class="table-action" type="button" @click="navigator.clipboard.writeText($el.closest('.quickstart-instruction').querySelector('.quickstart-code').textContent); copied = true">Copier la configuration</button>
 							</div>
 							<pre class="quickstart-code"><code>{ item.Snippet }</code></pre>
 						</div>
@@ -844,20 +855,20 @@ templ projectDetailBody(data ProjectDetailData) {
 				</div>
 				<div class="ai-help">
 					<div>
-						<strong>Not sure what to do?</strong>
-						<p>Paste this prompt into your AI coding agent and it will guide you through the smallest framework-specific change.</p>
+						<strong>Besoin d'aide ?</strong>
+						<p>Collez cette invite dans votre agent IA et il vous guidera pour la plus petite modification adaptée.</p>
 					</div>
 					<textarea class="ai-prompt" readonly x-ref="aiPrompt">{ data.Access.AIPrompt }</textarea>
-					<button class="button secondary" type="button" @click="navigator.clipboard.writeText($refs.aiPrompt.value); copied = true">Copy prompt</button>
+					<button class="button secondary" type="button" @click="navigator.clipboard.writeText($refs.aiPrompt.value); copied = true">Copier l'invite</button>
 				</div>
-				<p class="access-fallback"><strong>Navigation broken under Proxied?</strong> Use Direct mode from Edit, or open the direct URL above without changing your project.</p>
+				<p class="access-fallback"><strong>Navigation cassée en mode proxy ?</strong> Utilisez le mode direct depuis Modifier, ou ouvrez l'URL directe ci-dessus sans changer votre projet.</p>
 			</div>
 		</section>
 		<section class="panel detail-panel" id="ports" x-data="{ confirming: '' }">
 			<div class="panel-head">
 				<div>
 					<h2>Ports</h2>
-					<p>Only the main port gets a public link. All actions happen here.</p>
+					<p>Seul le port principal reçoit un lien public. Tout se passe ici.</p>
 				</div>
 			</div>
 			<div class="panel-body panel-body-padded">
@@ -867,40 +878,40 @@ templ projectDetailBody(data ProjectDetailData) {
 					</div>
 				}
 				if len(data.AllocatedPorts) == 0 {
-					<p class="text-sm text-brand-muted mb-4">No ports assigned yet.</p>
+					<p class="text-sm text-brand-muted mb-4">Aucun port attribué pour le moment.</p>
 				} else {
 					<ul class="flex flex-col gap-2 mb-5">
 						for _, port := range data.AllocatedPorts {
 							<li class="flex flex-wrap items-center gap-2">
 								<code class="hub-code">{ port.Port }</code>
 								if port.IsMain {
-									<span class="port main">main</span>
+									<span class="port main">principal</span>
 								} else {
-									<span class="port">internal</span>
+									<span class="port">interne</span>
 									<form method="post" action={ "/projects/" + data.Slug + "/ports/promote" }>
 										<input type="hidden" name="port" value={ port.Port }/>
 										<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
-										<button class="table-action" type="submit">Make main</button>
+										<button class="table-action" type="submit">Principal</button>
 									</form>
 									<form method="post" action={ "/projects/" + data.Slug + "/ports/release" } x-show="confirming !== '{ port.Port }'">
 										<input type="hidden" name="port" value={ port.Port }/>
 										<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
-										<button class="link-danger" type="button" @click={ "confirming = '" + port.Port + "'" }>Release</button>
+										<button class="link-danger" type="button" @click={ "confirming = '" + port.Port + "'" }>Libérer</button>
 									</form>
 									<div class="flex items-center gap-2" x-show={ "confirming === '" + port.Port + "'" } x-cloak>
-										<span class="text-sm text-slate-600">Release { port.Port }?</span>
+										<span class="text-sm text-slate-600 dark:text-slate-400">Libérer { port.Port } ?</span>
 										<form method="post" action={ "/projects/" + data.Slug + "/ports/release" }>
 											<input type="hidden" name="port" value={ port.Port }/>
 											<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
-											<button class="button danger" type="submit">Confirm</button>
+											<button class="button danger" type="submit">Confirmer</button>
 										</form>
-										<button class="button secondary" type="button" @click="confirming = ''">Cancel</button>
+										<button class="button secondary" type="button" @click="confirming = ''">Annuler</button>
 									</div>
 								}
 								if port.Live {
-									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green dark:bg-green-950 dark:text-green-300">
 										<span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-										Live
+										En ligne
 									</span>
 								}
 							</li>
@@ -910,32 +921,32 @@ templ projectDetailBody(data ProjectDetailData) {
 				<div class="flex flex-col gap-4">
 					<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/replace" }>
 						<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
-						<label class="block text-sm font-bold text-slate-700">
-							New main port
-							<input class="mt-1 block w-28 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="port" type="number" min="3000" max="9999" placeholder="auto"/>
+						<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+							Nouveau port principal
+							<input class="mt-1 block w-28 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="port" type="number" min="3000" max="9999" placeholder="auto"/>
 						</label>
-						<label class="flex items-center gap-1.5 text-sm font-normal text-slate-700 pb-2">
+						<label class="flex items-center gap-1.5 text-sm font-normal text-slate-700 pb-2 dark:text-slate-300">
 							<input type="checkbox" name="release_old" value="on" checked/>
-							Release old main
+							Libérer l'ancien principal
 						</label>
-						<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-navy hover:opacity-90 text-white text-sm font-bold rounded-lg transition-opacity cursor-pointer" type="submit">Replace main</button>
+						<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-navy hover:opacity-90 text-white text-sm font-bold rounded-lg transition-opacity cursor-pointer" type="submit">Remplacer le principal</button>
 					</form>
 					<div class="flex flex-wrap gap-4">
 						<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/allocate" }>
 							<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
-							<label class="block text-sm font-bold text-slate-700">
-								More ports
-								<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal" name="count" type="number" min="1" max="5" value="1"/>
+							<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+								Ports supplémentaires
+								<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="count" type="number" min="1" max="5" value="1"/>
 							</label>
-							<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Allocate</button>
+							<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200" type="submit">Attribuer</button>
 						</form>
 						<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/ports/claim" }>
 							<input type="hidden" name="next" value={ "/projects/" + data.Slug + "#ports" }/>
-							<label class="block text-sm font-bold text-slate-700">
-								Specific port
-								<input class="mt-1 block w-28 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="port" type="number" min="3000" max="9999" placeholder="3000"/>
+							<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+								Port précis
+								<input class="mt-1 block w-28 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="port" type="number" min="3000" max="9999" placeholder="3000"/>
 							</label>
-							<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Claim</button>
+							<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200" type="submit">Réclamer</button>
 						</form>
 					</div>
 				</div>
@@ -944,8 +955,8 @@ templ projectDetailBody(data ProjectDetailData) {
 		<section class="panel detail-panel">
 			<div class="panel-head">
 				<div>
-					<h2>Healthchecks</h2>
-					<p>Endpoints the checker will probe. Stored only for now.</p>
+					<h2>Contrôles de santé</h2>
+					<p>Points de terminaison sondés. Stockés uniquement pour l'instant.</p>
 				</div>
 			</div>
 			<div class="panel-body panel-body-padded">
@@ -955,7 +966,7 @@ templ projectDetailBody(data ProjectDetailData) {
 					</div>
 				}
 				if len(data.Healthchecks) == 0 {
-					<p class="text-sm text-brand-muted mb-4">No endpoints yet.</p>
+					<p class="text-sm text-brand-muted mb-4">Aucun point de terminaison.</p>
 				} else {
 					<ul class="flex flex-col gap-2 mb-4">
 						for _, check := range data.Healthchecks {
@@ -964,7 +975,7 @@ templ projectDetailBody(data ProjectDetailData) {
 								<span class="port">→ { check.Expected }</span>
 								<form method="post" action={ "/projects/" + data.Slug + "/healthchecks/" + check.ID + "/delete" }>
 									<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
-									<button class="table-action" type="submit">Remove</button>
+									<button class="table-action" type="submit">Retirer</button>
 								</form>
 							</li>
 						}
@@ -972,20 +983,20 @@ templ projectDetailBody(data ProjectDetailData) {
 				}
 				<form class="flex flex-wrap items-end gap-2" method="post" action={ "/projects/" + data.Slug + "/healthchecks" }>
 					<input type="hidden" name="next" value={ "/projects/" + data.Slug }/>
-					<label class="block text-sm font-bold text-slate-700">
-						Endpoint
-						<input class="mt-1 block w-64 max-w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal" name="endpoint" maxlength="2048" placeholder="/health"/>
+					<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+						Point de terminaison
+						<input class="mt-1 block w-64 max-w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-mono font-normal dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="endpoint" maxlength="2048" placeholder="/health"/>
 					</label>
-					<label class="block text-sm font-bold text-slate-700">
-						Expect
-						<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal" name="expected_status" type="number" min="200" max="599" placeholder="200"/>
+					<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+						Attendu
+						<input class="mt-1 block w-24 px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="expected_status" type="number" min="200" max="599" placeholder="200"/>
 					</label>
-					<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer" type="submit">Add</button>
+					<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-lg transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200" type="submit">Ajouter</button>
 				</form>
 			</div>
 		</section>
 		<section class="panel detail-panel tracking-panel">
-			<div class="panel-head"><h2>Project tracking</h2></div>
+			<div class="panel-head"><h2>Suivi du projet</h2></div>
 			<div class="tracking-card-body">
 				<div class="tracking-topline">
 					<span class={ "state-pill " + data.LifecycleClass }>{ data.LifecycleLabel }</span>
@@ -993,77 +1004,77 @@ templ projectDetailBody(data ProjectDetailData) {
 				</div>
 				<div class="tracking-meta">
 					<div>
-						<span>Last update</span>
+						<span>Dernière mise à jour</span>
 						<strong>{ data.UpdatedAt }</strong>
 					</div>
 					<div>
-						<span>Runtime intent</span>
+						<span>Intention d'exécution</span>
 						<strong>{ data.RuntimeIntent }</strong>
 					</div>
 				</div>
 			</div>
 		</section>
 		<section class="panel detail-panel">
-			<div class="panel-head"><h2>How to run this project</h2></div>
+			<div class="panel-head"><h2>Comment exécuter ce projet</h2></div>
 			<div class="panel-body panel-body-padded">
-				<ol class="flex flex-col gap-4 list-decimal ml-5 marker:font-bold marker:text-brand-navy">
+				<ol class="flex flex-col gap-4 list-decimal ml-5 marker:font-bold marker:text-brand-navy dark:marker:text-slate-300">
 					<li>
-						<strong>Work in your folder.</strong>
-						<span class="text-brand-muted">All files live in <code class="hub-code">{ data.Directory }</code>.</span>
+						<strong>Travaillez dans votre dossier.</strong>
+						<span class="text-brand-muted">Tous les fichiers se trouvent dans <code class="hub-code">{ data.Directory }</code>.</span>
 					</li>
 					<li>
-						<strong>Bind your main port.</strong>
+						<strong>Écoutez votre port principal.</strong>
 						if data.MainPort != "—" {
-							<span class="text-brand-muted">Listen on <code class="hub-code">localhost:{ data.MainPort }</code>. Assigned ports only — never take another project's.</span>
+							<span class="text-brand-muted">Écoutez sur <code class="hub-code">localhost:{ data.MainPort }</code>. Ports attribués uniquement — ne prenez jamais celui d'un autre projet.</span>
 						} else {
-							<span class="text-brand-muted">Listen on your main port (see Ports above). Assigned ports only — never take another project's.</span>
+							<span class="text-brand-muted">Écoutez sur votre port principal (voir Ports ci-dessus). Ports attribués uniquement — ne prenez jamais celui d'un autre projet.</span>
 						}
 					</li>
 					<li>
-						<strong>Start it.</strong>
-						<span class="text-brand-muted">Run <code class="hub-code">{ data.StartupCommand }</code>. Toggle Should run on the Edit page to stop or restart.</span>
+						<strong>Démarrez-le.</strong>
+						<span class="text-brand-muted">Exécutez <code class="hub-code">{ data.StartupCommand }</code>. Basculez « Doit tourner » sur la page Modifier pour arrêter ou redémarrer.</span>
 					</li>
 					<li>
-						<strong>Read the README first.</strong>
-						<span class="text-brand-muted">It lists your ports and URL.</span>
+						<strong>Lisez d'abord le README.</strong>
+						<span class="text-brand-muted">Il liste vos ports et votre URL.</span>
 					</li>
 				</ol>
 			</div>
 		</section>
 		<section class="panel detail-panel" x-data="{ confirmArchive: false }">
-			<div class="panel-head"><h2>Project setup</h2></div>
+			<div class="panel-head"><h2>Configuration du projet</h2></div>
 			<dl class="hub-dl setup">
 				<div>
-					<dt>Directory</dt>
+					<dt>Dossier</dt>
 					<dd><code class="hub-code">{ data.Directory }</code></dd>
 				</div>
 				<div>
-					<dt>Entry point</dt>
+					<dt>Point d'entrée</dt>
 					<dd><code class="hub-code">{ data.StartupCommand }</code></dd>
 				</div>
 			</dl>
 			if !data.Archived {
 				<div class="archive">
 					<div class="archive-label">
-						<h3>Archive project</h3>
-						<p>This hides the project from active discovery and frees its assigned ports to the shared pool.</p>
+						<h3>Archiver le projet</h3>
+						<p>Cela masque le projet de la recherche active et libère ses ports vers le pool partagé.</p>
 					</div>
-					<button class="link-danger" type="button" @click="confirmArchive = true" x-show="!confirmArchive">Archive</button>
+					<button class="link-danger" type="button" @click="confirmArchive = true" x-show="!confirmArchive">Archiver</button>
 				</div>
 				<div class="archive-confirm" x-show="confirmArchive" x-cloak>
-					<p>This action hides the project and frees its ports. Lifecycle can be changed later from Edit.</p>
+					<p>Cette action masque le projet et libère ses ports. Le cycle de vie pourra être modifié depuis Modifier.</p>
 					<div class="archive-confirm-actions">
-						<button class="button secondary" type="button" @click="confirmArchive = false">Cancel</button>
+						<button class="button secondary" type="button" @click="confirmArchive = false">Annuler</button>
 						<form method="post" action={ "/projects/" + data.Slug + "/archive" }>
-							<button class="button danger" type="submit">Confirm archive</button>
+							<button class="button danger" type="submit">Confirmer l'archivage</button>
 						</form>
 					</div>
 				</div>
 			} else {
 				<div class="archive">
 					<div class="archive-label">
-						<h3>Archived</h3>
-						<p>This project is archived.</p>
+						<h3>Archivé</h3>
+						<p>Ce projet est archivé.</p>
 					</div>
 				</div>
 			}
@@ -1073,41 +1084,41 @@ templ projectDetailBody(data ProjectDetailData) {
 
 templ projectFormBody(data ProjectFormData) {
 	if data.IsNew {
-		<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3" href="/projects">← Projects</a>
+		<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3 dark:text-blue-400" href="/projects">← Projets</a>
 	} else {
-		<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3" href={ "/projects/" + data.Slug }>← { data.Name }</a>
+		<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3 dark:text-blue-400" href={ "/projects/" + data.Slug }>← { data.Name }</a>
 	}
-	<h1 class="text-2xl font-bold text-brand-navy mb-4">{ data.Title }</h1>
+	<h1 class="text-2xl font-bold text-brand-navy mb-4 dark:text-white">{ data.Title }</h1>
 	if data.Error != "" {
 		<div class="max-w-xl p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
 			{ data.Error }
 		</div>
 	}
-	<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4" method="post" action={ data.Action } x-data="{ busy: false, shouldRun: true }" x-init={ "shouldRun = " + activeJS(data.ShouldRun) } @submit="busy = true">
-		<label class="block text-sm font-bold text-slate-700">
-			Name
-			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="name" required minlength="2" maxlength="80" value={ data.Name }/>
+	<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4 dark:bg-slate-800 dark:border-slate-700" method="post" action={ data.Action } x-data="{ busy: false, shouldRun: true }" x-init={ "shouldRun = " + activeJS(data.ShouldRun) } @submit="busy = true">
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+			Nom
+			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="name" required minlength="2" maxlength="80" value={ data.Name }/>
 		</label>
-		<label class="block text-sm font-bold text-slate-700">
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
 			Slug
 			if data.IsNew {
-				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="slug" pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$" value={ data.Slug } placeholder="Derived from name when empty"/>
+				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="slug" pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$" value={ data.Slug } placeholder="Dérivé du nom si vide"/>
 			} else {
-				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-slate-50 text-slate-600 font-normal" name="slug" value={ data.Slug } readonly/>
+				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-slate-50 text-slate-600 font-normal dark:bg-slate-900 dark:border-slate-600 dark:text-slate-400" name="slug" value={ data.Slug } readonly/>
 			}
 		</label>
-		<label class="block text-sm font-bold text-slate-700">
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
 			Description
-			<textarea class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors min-h-[96px]" name="description" maxlength="4000">{ data.Description }</textarea>
+			<textarea class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors min-h-[96px] dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="description" maxlength="4000">{ data.Description }</textarea>
 		</label>
 		<fieldset class="block">
-			<legend class="text-sm font-bold text-slate-700 mb-2">Assigned interns</legend>
+			<legend class="text-sm font-bold text-slate-700 mb-2 dark:text-slate-300">Stagiaires assignés</legend>
 			if len(data.Interns) == 0 {
-				<p class="text-sm text-brand-muted">No active interns available. Create an intern first.</p>
+				<p class="text-sm text-brand-muted">Aucun stagiaire actif disponible. Créez d'abord un stagiaire.</p>
 			} else {
-				<div class="space-y-2 max-h-48 overflow-y-auto border border-slate-200 rounded-md p-3">
+				<div class="space-y-2 max-h-48 overflow-y-auto border border-slate-200 rounded-md p-3 dark:border-slate-600">
 					for _, intern := range data.Interns {
-						<label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+						<label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
 							<input class="rounded border-slate-300 text-brand-blue focus:ring-brand-blue/20" type="checkbox" name="intern_ids" value={ intern.ID } checked?={ intern.Selected }/>
 							{ intern.FullName }
 						</label>
@@ -1115,29 +1126,29 @@ templ projectFormBody(data ProjectFormData) {
 				</div>
 			}
 		</fieldset>
-		<label class="block text-sm font-bold text-slate-700">
-			Lifecycle
-			<select name="lifecycle_status" class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer">
-				<option value="draft" selected?={ data.LifecycleStatus == "" || data.LifecycleStatus == "draft" }>Draft</option>
-				<option value="ready" selected?={ data.LifecycleStatus == "ready" }>Ready</option>
-				<option value="running" selected?={ data.LifecycleStatus == "running" }>Running</option>
-				<option value="stopped" selected?={ data.LifecycleStatus == "stopped" }>Stopped</option>
-				<option value="failed" selected?={ data.LifecycleStatus == "failed" }>Failed</option>
-				<option value="archived" selected?={ data.LifecycleStatus == "archived" }>Archived</option>
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+			Cycle de vie
+			<select name="lifecycle_status" class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
+				<option value="draft" selected?={ data.LifecycleStatus == "" || data.LifecycleStatus == "draft" }>Brouillon</option>
+				<option value="ready" selected?={ data.LifecycleStatus == "ready" }>Prêt</option>
+				<option value="running" selected?={ data.LifecycleStatus == "running" }>En cours</option>
+				<option value="stopped" selected?={ data.LifecycleStatus == "stopped" }>Arrêté</option>
+				<option value="failed" selected?={ data.LifecycleStatus == "failed" }>Échoué</option>
+				<option value="archived" selected?={ data.LifecycleStatus == "archived" }>Archivé</option>
 			</select>
 		</label>
-		<label class="block text-sm font-bold text-slate-700">
-			Access mode
-			<select name="access_mode" class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer">
-				<option value="direct" selected?={ data.AccessMode == "" || data.AccessMode == "direct" }>Direct — server and main port</option>
-				<option value="proxied" selected?={ data.AccessMode == "proxied" }>Proxied — shared project URL</option>
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+			Mode d'accès
+			<select name="access_mode" class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
+				<option value="direct" selected?={ data.AccessMode == "" || data.AccessMode == "direct" }>Direct — serveur et port principal</option>
+				<option value="proxied" selected?={ data.AccessMode == "proxied" }>Via proxy — URL de projet partagée</option>
 			</select>
-			<span class="mt-1 block text-xs text-brand-muted">Direct is the compatibility-first default. Proxied may require a framework base path.</span>
+			<span class="mt-1 block text-xs text-brand-muted">Direct est le choix par défaut, le plus compatible. Le mode proxy peut exiger un chemin de base.</span>
 		</label>
 		if data.IsNew {
-			<label class="block text-sm font-bold text-slate-700">
-				Ports needed
-				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="ports_needed" type="number" min="1" max="5" value={ strconv.Itoa(portCountOrDefault(data.PortCount)) }/>
+			<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+				Ports nécessaires
+				<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="ports_needed" type="number" min="1" max="5" value={ strconv.Itoa(portCountOrDefault(data.PortCount)) }/>
 			</label>
 		}
 		<div class="flex flex-wrap items-center gap-3">
@@ -1145,25 +1156,25 @@ templ projectFormBody(data ProjectFormData) {
 			<button
 				type="button"
 				@click="shouldRun = !shouldRun"
-				:class="shouldRun ? 'bg-brand-green-soft hover:bg-green-100 border-green-300 text-brand-green' : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700'"
+				:class="shouldRun ? 'bg-brand-green-soft hover:bg-green-100 border-green-300 text-brand-green dark:bg-green-950 dark:hover:bg-green-900 dark:border-green-800 dark:text-green-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200'"
 				class="inline-flex items-center gap-1.5 justify-center min-h-[36px] px-4 py-2 border text-sm font-bold rounded-lg transition-colors cursor-pointer"
 			>
 				<span class="w-1.5 h-1.5 rounded-full" :class="shouldRun ? 'bg-brand-green' : 'bg-slate-400'"></span>
-				<span x-text="shouldRun ? 'Should run: on' : 'Should run: off'"></span>
+				<span x-text="shouldRun ? 'Doit tourner : oui' : 'Doit tourner : non'"></span>
 			</button>
 			if !data.IsNew {
 				if data.IsLive {
-					<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green">Observed: live</span>
+					<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green-soft text-brand-green dark:bg-green-950 dark:text-green-300">Observé : en ligne</span>
 				} else {
-					<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Observed: not live</span>
+					<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Observé : hors ligne</span>
 				}
 			}
 		</div>
 		<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">
 			if data.IsNew {
-				Create project
+				Créer le projet
 			} else {
-				Save project
+				Enregistrer le projet
 			}
 		</button>
 	</form>
@@ -1173,9 +1184,9 @@ templ projectFormBody(data ProjectFormData) {
 }
 
 templ projectPortsPanel(data ProjectFormData) {
-	<section class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm mt-6">
-		<h2 class="text-base font-bold text-brand-navy">Ports</h2>
-		<p class="text-brand-muted text-sm mt-0.5">Manage ports on the <a class="table-action" href={ "/projects/" + data.Slug + "#ports" }>project page</a> — allocate, claim, promote, release, or replace main in one place.</p>
+	<section class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm mt-6 dark:bg-slate-800 dark:border-slate-700">
+		<h2 class="text-base font-bold text-brand-navy dark:text-white">Ports</h2>
+		<p class="text-brand-muted text-sm mt-0.5">Gérez les ports sur la <a class="table-action" href={ "/projects/" + data.Slug + "#ports" }>page du projet</a> — attribuez, réclamez, promouvez, libérez ou remplacez le principal au même endroit.</p>
 		if data.PortError != "" {
 			<div class="p-3 mt-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
 				{ data.PortError }
@@ -1189,36 +1200,36 @@ templ InternFormPage(data InternFormData) {
 }
 
 templ internFormBody(data InternFormData) {
-	<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3" href="/interns">← Interns</a>
-	<h1 class="text-2xl font-bold text-brand-navy mb-4">{ data.Title }</h1>
+	<a class="inline-flex items-center text-sm font-semibold text-brand-blue hover:underline mb-3 dark:text-blue-400" href="/interns">← Stagiaires</a>
+	<h1 class="text-2xl font-bold text-brand-navy mb-4 dark:text-white">{ data.Title }</h1>
 	if data.Error != "" {
 		<div class="max-w-xl p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-brand-red text-sm font-medium" role="alert">
 			{ data.Error }
 		</div>
 	}
-	<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4" method="post" action={ data.Action } x-data="{ busy: false, active: true }" x-init={ "active = " + activeJS(data.Active) } @submit="busy = true">
-		<label class="block text-sm font-bold text-slate-700">
-			Full name
-			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="full_name" required value={ data.FullName }/>
+	<form class="max-w-xl bg-white border border-brand-line rounded-lg p-6 shadow-sm space-y-4 dark:bg-slate-800 dark:border-slate-700" method="post" action={ data.Action } x-data="{ busy: false, active: true }" x-init={ "active = " + activeJS(data.Active) } @submit="busy = true">
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+			Nom complet
+			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="full_name" required value={ data.FullName }/>
 		</label>
-		<label class="block text-sm font-bold text-slate-700">
-			Username
-			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" name="identifier" required value={ data.Identifier }/>
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+			Nom d'utilisateur
+			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" name="identifier" required value={ data.Identifier }/>
 		</label>
-		<label class="block text-sm font-bold text-slate-700">
-			Email
-			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors" type="email" name="email" value={ data.Email }/>
+		<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+			E-mail
+			<input class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none text-slate-800 font-normal transition-colors dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200" type="email" name="email" value={ data.Email }/>
 		</label>
 		if data.IsNew {
-			<label class="block text-sm font-bold text-slate-700">
-				Password
+			<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
+				Mot de passe
 				@components.PasswordField("password", "new-password", true)
 			</label>
-			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
+			<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Enregistrer le stagiaire</button>
 		} else {
 			<div class="flex flex-wrap items-center gap-3">
 				<input type="hidden" name="active" :value="active ? 'true' : 'false'"/>
-				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Save intern</button>
+				<button class="inline-flex items-center justify-center min-h-[36px] px-4 py-2 bg-brand-blue hover:bg-brand-blue-hover disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm" :disabled="busy">Enregistrer le stagiaire</button>
 				<button
 					type="button"
 					@click="active = !active"
@@ -1226,7 +1237,7 @@ templ internFormBody(data InternFormData) {
 					class="inline-flex items-center gap-1.5 justify-center min-h-[36px] px-4 py-2 border text-sm font-bold rounded-lg transition-colors cursor-pointer"
 				>
 					<span class="w-1.5 h-1.5 rounded-full" :class="active ? 'bg-brand-red' : 'bg-brand-green'"></span>
-					<span x-text="active ? 'Deactivate account' : 'Activate account'"></span>
+					<span x-text="active ? 'Désactiver le compte' : 'Activer le compte'"></span>
 				</button>
 			</div>
 		}

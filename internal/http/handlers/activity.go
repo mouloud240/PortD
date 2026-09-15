@@ -74,7 +74,7 @@ func (h *Handlers) Activity(w http.ResponseWriter, r *http.Request) error {
 		rows = rows[:activityPageSize]
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.ActivityPage(pages.ActivityData{
-		Title:      "Activity",
+		Title:      "Activité",
 		Path:       "/activity",
 		Items:      pages.ActivityItems(rows),
 		EventTypes: activityEventTypes,

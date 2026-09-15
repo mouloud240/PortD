@@ -95,7 +95,7 @@ func (h *Handlers) ProfileUpdate(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	data.FullName = r.FormValue("full_name")
 	data.Username = r.FormValue("identifier")
@@ -103,20 +103,20 @@ func (h *Handlers) ProfileUpdate(w http.ResponseWriter, r *http.Request) error {
 	current, err := h.intern.Get(r.Context(), h.principalID(r))
 	if err != nil {
 		if errors.Is(err, internsvc.ErrNotFound) {
-			return httperr.NotFound("Profile not found.", err)
+			return httperr.NotFound("Profil introuvable.", err)
 		}
 		return err
 	}
 	if _, err := h.intern.Update(r.Context(), current.ID, data.FullName, data.Email, data.Username, current.Active == 1); err != nil {
 		switch {
 		case errors.Is(err, internsvc.ErrInvalid):
-			data.Error = "Full name and username are required."
+			data.Error = "Le nom complet et le nom d'utilisateur sont requis."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.ProfilePage(data))
 		case errors.Is(err, internsvc.ErrConflict):
-			data.Error = "That username or email is already taken."
+			data.Error = "Ce nom d'utilisateur ou cet e-mail est déjà pris."
 			return httperr.Render(w, r, http.StatusConflict, pages.ProfilePage(data))
 		case errors.Is(err, sql.ErrNoRows):
-			return httperr.NotFound("Profile not found.", err)
+			return httperr.NotFound("Profil introuvable.", err)
 		default:
 			return err
 		}
@@ -148,13 +148,13 @@ func (h *Handlers) principalID(r *http.Request) string {
 func (h *Handlers) loadProfile(r *http.Request) (pages.ProfileData, error) {
 	principal, ok := auth.PrincipalFrom(r.Context())
 	if !ok {
-		return pages.ProfileData{}, httperr.Unauthorized("Sign in required.", nil)
+		return pages.ProfileData{}, httperr.Unauthorized("Connexion requise.", nil)
 	}
 	if principal.IsAdmin() {
 		return pages.ProfileData{
-			Title:    "Profile",
+			Title:    "Profil",
 			Path:     "/profile",
-			Role:     "admin",
+			Role:     "administrateur",
 			IsAdmin:  true,
 			Username: h.auth.AdminUsername(),
 		}, nil
@@ -162,14 +162,14 @@ func (h *Handlers) loadProfile(r *http.Request) (pages.ProfileData, error) {
 	intern, err := h.intern.Get(r.Context(), principal.InternID)
 	if err != nil {
 		if errors.Is(err, internsvc.ErrNotFound) {
-			return pages.ProfileData{}, httperr.NotFound("Profile not found.", err)
+			return pages.ProfileData{}, httperr.NotFound("Profil introuvable.", err)
 		}
 		return pages.ProfileData{}, err
 	}
 	return pages.ProfileData{
-		Title:    "Profile",
+		Title:    "Profil",
 		Path:     "/profile",
-		Role:     "intern",
+		Role:     "stagiaire",
 		FullName: intern.FullName,
 		Username: intern.Identifier.String,
 		Email:    intern.Email.String,

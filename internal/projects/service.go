@@ -270,11 +270,11 @@ type LifecycleCount struct {
 // lifecycleOrder fixes the dashboard bar order; archived is excluded
 // because Overview only counts active projects.
 var lifecycleOrder = []LifecycleCount{
-	{Status: "draft", Label: "Draft", Class: "draft", Color: "#2d5fb3"},
-	{Status: "ready", Label: "Ready", Class: "ready", Color: "#9a5500"},
-	{Status: "running", Label: "Running", Class: "running", Color: "#087f44"},
-	{Status: "stopped", Label: "Stopped", Class: "stopped", Color: "#bd2d2d"},
-	{Status: "failed", Label: "Failed", Class: "failed", Color: "#bd2d2d"},
+	{Status: "draft", Label: "Brouillon", Class: "draft", Color: "#2d5fb3"},
+	{Status: "ready", Label: "Prêt", Class: "ready", Color: "#9a5500"},
+	{Status: "running", Label: "En cours", Class: "running", Color: "#087f44"},
+	{Status: "stopped", Label: "Arrêté", Class: "stopped", Color: "#bd2d2d"},
+	{Status: "failed", Label: "Échoué", Class: "failed", Color: "#bd2d2d"},
 }
 
 func (s *Service) Overview(ctx context.Context) (Overview, error) {

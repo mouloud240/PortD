@@ -1276,3 +1276,282 @@ small.warning {
   padding: 15px 19px;
   border-top: 1px solid #dbe3ed;
 }
+
+/* Dark mode — one html.dark override block for every hub surface.
+   Tailwind shell chrome uses dark: variants in layout.templ instead. */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0b1220;
+  color: #e2e8f0;
+}
+
+html.dark .panel,
+html.dark .project-hero,
+html.dark .stat-grid article {
+  background-color: #111c30;
+  border-color: #24334d;
+  color: #e2e8f0;
+  box-shadow: none;
+}
+
+html.dark .page-heading h1,
+html.dark .project-hero h1,
+html.dark .panel-head h2,
+html.dark .access-subhead h3,
+html.dark .ports-panel-intro strong,
+html.dark .tracking-topline strong,
+html.dark .tracking-meta strong,
+html.dark .hub-dl dd,
+html.dark .project-name,
+html.dark .detect-name,
+html.dark .stat-grid strong,
+html.dark .runtime-file span {
+  color: #eef3fa;
+}
+
+html.dark .page-heading p,
+html.dark .project-hero p,
+html.dark .panel-head p,
+html.dark .archive p,
+html.dark .ports-panel-intro p,
+html.dark .ports-scan-meta,
+html.dark .access-option p,
+html.dark .quickstart p,
+html.dark .access-fallback,
+html.dark .quickstart-instruction-head p,
+html.dark .quickstart-file,
+html.dark .ai-help p,
+html.dark .runtime-control-row p,
+html.dark .runtime-file span + span,
+html.dark .runtime-error,
+html.dark .hub-table td,
+html.dark .activity span,
+html.dark .empty-state,
+html.dark .detect-empty,
+html.dark .stat-grid span,
+html.dark .stat-grid small,
+html.dark .breadcrumb span {
+  color: #9fb0c7;
+}
+
+html.dark .hub-table th,
+html.dark .hub-dl dt,
+html.dark .activity time,
+html.dark .stat-grid em {
+  color: #8b9bb4;
+}
+
+html.dark .hub-table th {
+  background: #0f1930;
+}
+
+html.dark .panel-head,
+html.dark .toolbar,
+html.dark .ports-panel-intro,
+html.dark .detect-toolbar,
+html.dark .detect-actions,
+html.dark .archive,
+html.dark .runtime-file {
+  border-color: #24334d;
+}
+
+html.dark .hub-table th,
+html.dark .hub-table td,
+html.dark .activity li {
+  border-color: #1e2c46;
+}
+
+html.dark .hub-table tbody tr:hover,
+html.dark .detect-row:hover {
+  background: #16223a;
+}
+
+html.dark .panel,
+html.dark .panel-body-padded,
+html.dark .panel-head,
+html.dark .project-hero-meta,
+html.dark .ports-panel-intro,
+html.dark .ports-scan-meta,
+html.dark .quickstart {
+  color: #e2e8f0;
+}
+
+html.dark .text-brand-muted,
+html.dark .panel .text-brand-muted {
+  color: #9fb0c7 !important;
+}
+
+html.dark .button.secondary {
+  background: #16223a;
+  color: #cfe0ff;
+  border-color: #4a6db3;
+}
+
+html.dark .button.secondary:hover {
+  background: #1c2c4b;
+  color: #e2e8f0;
+  border-color: #6b8fd4;
+}
+
+html.dark .link-danger:hover {
+  background: #3a1620;
+}
+
+html.dark .table-action,
+html.dark .breadcrumb,
+html.dark .project-hero a:not(.button),
+html.dark .quickstart-action {
+  color: #7ea6f2;
+}
+
+html.dark .hub-code,
+html.dark .port {
+  background: #0f1930;
+  border-color: #2c3f5f;
+  color: #c6d6ee;
+}
+
+html.dark .port.main {
+  background: #16294d;
+  border-color: #4a6db3;
+  color: #a9c4f5;
+}
+
+html.dark .toolbar input,
+html.dark .toolbar select,
+html.dark .detect-toolbar input[type="search"],
+html.dark .runtime-configure input,
+html.dark .ai-prompt {
+  background: #0f1930;
+  border-color: #2c3f5f;
+  color: #e2e8f0;
+}
+
+html.dark .access-option,
+html.dark .ai-help,
+html.dark .tracking-meta div {
+  background: #0f1930;
+  border-color: #24334d;
+}
+
+html.dark .access-option[data-active],
+html.dark .quickstart:hover,
+html.dark .quickstart:focus-visible,
+html.dark .quickstart.is-selected {
+  background: #14294d;
+  border-color: #4a6db3;
+}
+
+html.dark .quickstart {
+  background: #111c30;
+  border-color: #24334d;
+}
+
+html.dark .quickstart-instruction {
+  background: #14294d;
+  border-color: #4a6db3;
+}
+
+html.dark .quickstart-code {
+  background: #0b1220;
+  border-color: #2c3f5f;
+  color: #c6d6ee;
+}
+
+html.dark .access-fallback {
+  background: #2c2311;
+  border-color: #6b5518;
+}
+
+html.dark .runtime-alert {
+  background: #2c2311;
+  border-color: #6b5518;
+  color: #f0c979;
+}
+
+html.dark .archive-confirm {
+  background: #3a1620;
+  border-color: #7c2d3a;
+}
+
+html.dark .archive-confirm p {
+  color: #f5a8b8;
+}
+
+html.dark .detect-row.is-existing {
+  background: #131d33;
+  color: #66788f;
+}
+
+html.dark .detect-row.is-existing .detect-name {
+  color: #66788f;
+}
+
+html.dark .detect-backdrop {
+  background: rgb(3 7 18 / 0.7);
+}
+
+html.dark .badge.running,
+html.dark small.positive {
+  background: #0f3524;
+  color: #5fd39a;
+}
+
+html.dark .badge.warning,
+html.dark small.warning {
+  background: #3a2b0c;
+  color: #f0c979;
+}
+
+html.dark .badge.neutral {
+  background: #1c2942;
+  color: #a9bcd6;
+}
+
+html.dark .badge.down {
+  background: #3a1620;
+  color: #f5a8b8;
+}
+
+html.dark .badge.info {
+  background: #14294d;
+  color: #a9c4f5;
+}
+
+html.dark .badge.accent {
+  background: #2a1d4d;
+  color: #c9b3f5;
+}
+
+html.dark .state-pill.draft,
+html.dark .state-pill.planning {
+  background: #14294d;
+  color: #a9c4f5;
+}
+
+html.dark .state-pill.ready,
+html.dark .state-pill.developing {
+  background: #3a2b0c;
+  color: #f0c979;
+}
+
+html.dark .state-pill.running,
+html.dark .state-pill.review,
+html.dark .state-pill.live {
+  background: #0f3524;
+  color: #5fd39a;
+}
+
+html.dark .state-pill.stopped,
+html.dark .state-pill.failed {
+  background: #3a1620;
+  color: #f5a8b8;
+}
+
+html.dark .state-pill.archived {
+  background: #1c2942;
+  color: #a9bcd6;
+}

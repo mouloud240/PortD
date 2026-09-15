@@ -24,17 +24,17 @@ func (h *ProjectsHandler) ListPage(w http.ResponseWriter, r *http.Request) error
 	search, lifecycle, liveParam, isLive := listFilters(r)
 	principal, _ := auth.PrincipalFrom(r.Context())
 	if !principal.IsAdmin() && principal.InternID == "" {
-		return httperr.Forbidden("Sign in as an intern or administrator.", nil)
+		return httperr.Forbidden("Connectez-vous en tant que stagiaire ou administrateur.", nil)
 	}
 	items, err := h.scopedList(r, search, lifecycle, isLive)
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrInvalid) {
-			return httperr.BadRequest("Invalid project filter.", err)
+			return httperr.BadRequest("Filtre de projet invalide.", err)
 		}
 		return err
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.ProjectsPage(
-		"Projects",
+		"Projets",
 		"/projects",
 		search,
 		lifecycle,
@@ -51,12 +51,12 @@ func (h *ProjectsHandler) DetectPage(w http.ResponseWriter, r *http.Request) err
 	search, lifecycle, liveParam, isLive := listFilters(r)
 	principal, _ := auth.PrincipalFrom(r.Context())
 	if !principal.IsAdmin() && principal.InternID == "" {
-		return httperr.Forbidden("Sign in as an intern or administrator.", nil)
+		return httperr.Forbidden("Connectez-vous en tant que stagiaire ou administrateur.", nil)
 	}
 	items, err := h.scopedList(r, search, lifecycle, isLive)
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrInvalid) {
-			return httperr.BadRequest("Invalid project filter.", err)
+			return httperr.BadRequest("Filtre de projet invalide.", err)
 		}
 		return err
 	}
@@ -65,7 +65,7 @@ func (h *ProjectsHandler) DetectPage(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.ProjectsPage(
-		"Projects",
+		"Projets",
 		"/projects",
 		search,
 		lifecycle,
@@ -113,7 +113,7 @@ func (h *ProjectsHandler) NewPage(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.ProjectFormPage(pages.ProjectFormData{
-		Title:           "New project",
+		Title:           "Nouveau projet",
 		Path:            "/projects",
 		Action:          "/projects",
 		LifecycleStatus: "draft",
@@ -126,7 +126,7 @@ func (h *ProjectsHandler) NewPage(w http.ResponseWriter, r *http.Request) error 
 
 func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	shouldRun, _ := strconv.ParseBool(r.FormValue("should_run"))
 	portCount := 2
@@ -136,7 +136,7 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		}
 	}
 	form := pages.ProjectFormData{
-		Title:           "New project",
+		Title:           "Nouveau projet",
 		Path:            "/projects",
 		Action:          "/projects",
 		Name:            r.FormValue("name"),
@@ -174,16 +174,16 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		slog.Error("project create failed", "error", err.Error())
 		switch {
 		case errors.Is(err, projectsvc.ErrInvalid):
-			form.Error = "Name, at least one active intern, a valid lifecycle, and 1–5 ports are required."
+			form.Error = "Le nom, au moins un stagiaire actif, un cycle de vie valide et 1 à 5 ports sont requis."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.ProjectFormPage(form))
 		case errors.Is(err, projectsvc.ErrConflict):
-			form.Error = "A project with that slug already exists."
+			form.Error = "Un projet avec ce slug existe déjà."
 			return httperr.Render(w, r, http.StatusConflict, pages.ProjectFormPage(form))
 		case errors.Is(err, projectsvc.ErrScaffold):
-			form.Error = "The project directory could not be prepared. Check the projects directory and try again."
+			form.Error = "Le dossier du projet n'a pas pu être préparé. Vérifiez le dossier des projets et réessayez."
 			return httperr.Render(w, r, http.StatusInternalServerError, pages.ProjectFormPage(form))
 		case errors.Is(err, portsvc.ErrNoPorts):
-			form.Error = "Not enough free ports in range 3000–9999 for this project."
+			form.Error = "Pas assez de ports libres dans la plage 3000–9999 pour ce projet."
 			return httperr.Render(w, r, http.StatusConflict, pages.ProjectFormPage(form))
 		default:
 			return err
@@ -203,7 +203,7 @@ func (h *ProjectsHandler) DetailPage(w http.ResponseWriter, r *http.Request) err
 	detail, err := h.service.GetBySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrNotFound) {
-			return httperr.NotFound("Project not found.", err)
+			return httperr.NotFound("Projet introuvable.", err)
 		}
 		return err
 	}
@@ -221,7 +221,7 @@ func (h *ProjectsHandler) EditPage(w http.ResponseWriter, r *http.Request) error
 	detail, err := h.service.GetBySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrNotFound) {
-			return httperr.NotFound("Project not found.", err)
+			return httperr.NotFound("Projet introuvable.", err)
 		}
 		return err
 	}
@@ -234,7 +234,7 @@ func (h *ProjectsHandler) EditPage(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.ProjectFormPage(pages.ProjectFormData{
-		Title:           "Edit project",
+		Title:           "Modifier le projet",
 		Path:            "/projects",
 		Action:          "/projects/" + detail.Project.Slug,
 		Name:            detail.Project.Name,
@@ -252,12 +252,12 @@ func (h *ProjectsHandler) EditPage(w http.ResponseWriter, r *http.Request) error
 
 func (h *ProjectsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	shouldRun, _ := strconv.ParseBool(r.FormValue("should_run"))
 	form := pages.ProjectFormData{
-		Title:           "Edit project",
+		Title:           "Modifier le projet",
 		Path:            "/projects",
 		Action:          "/projects/" + slug,
 		Name:            r.FormValue("name"),
@@ -289,10 +289,10 @@ func (h *ProjectsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		switch {
 		case errors.Is(err, projectsvc.ErrInvalid):
-			form.Error = "Name, at least one active intern, and a valid lifecycle are required."
+			form.Error = "Le nom, au moins un stagiaire actif et un cycle de vie valide sont requis."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.ProjectFormPage(form))
 		case errors.Is(err, projectsvc.ErrNotFound):
-			return httperr.NotFound("Project not found.", err)
+			return httperr.NotFound("Projet introuvable.", err)
 		default:
 			return err
 		}
@@ -313,7 +313,7 @@ func (h *ProjectsHandler) ArchivePost(w http.ResponseWriter, r *http.Request) er
 	archived, err := h.service.Archive(r.Context(), slug)
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrNotFound) {
-			return httperr.NotFound("Project not found.", err)
+			return httperr.NotFound("Projet introuvable.", err)
 		}
 		return err
 	}
@@ -329,11 +329,11 @@ func (h *ProjectsHandler) ArchivePost(w http.ResponseWriter, r *http.Request) er
 
 func (h *ProjectsHandler) healthBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
 	if errors.Is(err, projectsvc.ErrNotFound) {
-		return httperr.NotFound("Project not found.", err)
+		return httperr.NotFound("Projet introuvable.", err)
 	}
-	msg := "Healthcheck action failed."
+	msg := "L'action sur le contrôle a échoué."
 	if errors.Is(err, projectsvc.ErrInvalid) {
-		msg = "Endpoint must start with / or http(s):// and expect status 200–599."
+		msg = "Le point de terminaison doit commencer par / ou http(s):// et attendre un statut 200–599."
 	} else {
 		return err
 	}
@@ -363,22 +363,22 @@ func portBackURL(r *http.Request, slug string) string {
 
 func (h *ProjectsHandler) portBack(w http.ResponseWriter, r *http.Request, slug string, err error) error {
 	if errors.Is(err, projectsvc.ErrNotFound) || errors.Is(err, portsvc.ErrNotFound) {
-		return httperr.NotFound("Project not found.", err)
+		return httperr.NotFound("Projet introuvable.", err)
 	}
-	msg := "Port action failed."
+	msg := "L'action sur le port a échoué."
 	switch {
 	case errors.Is(err, projectsvc.ErrInvalid):
-		msg = "Count must be between 1 and 5."
+		msg = "Le nombre doit être entre 1 et 5."
 	case errors.Is(err, portsvc.ErrNoPorts):
-		msg = "Not enough free ports in range 3000–9999."
+		msg = "Pas assez de ports libres dans la plage 3000–9999."
 	case errors.Is(err, portsvc.ErrPortTaken):
-		msg = "That port is already taken."
+		msg = "Ce port est déjà pris."
 	case errors.Is(err, portsvc.ErrOutOfRange):
-		msg = "Port must be between 3000 and 9999."
+		msg = "Le port doit être entre 3000 et 9999."
 	case errors.Is(err, portsvc.ErrMainPort):
-		msg = "Promote another port to main before releasing this one."
+		msg = "Promeuvez un autre port comme principal avant de libérer celui-ci."
 	case errors.Is(err, portsvc.ErrPortLive):
-		msg = "That port is in use. Stop the process first."
+		msg = "Ce port est utilisé. Arrêtez d'abord le processus."
 	default:
 		return err
 	}
@@ -465,9 +465,9 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 	isLive := detail.Project.IsLive == 1
 	statusLabel, statusClass := pages.StatusBadge(shouldRun, isLive)
 	access := h.projectAccess(ctx, detail.Project)
-	runtimeIntent := "Stopped intent"
+	runtimeIntent := "Arrêt demandé"
 	if shouldRun {
-		runtimeIntent = "Should run"
+		runtimeIntent = "Doit tourner"
 	}
 	runtimeStatus := h.runtime.Status(detail.Project.ID)
 	runtimeFile := runtimeStatus.File
@@ -483,9 +483,9 @@ func (h *ProjectsHandler) projectDetailData(ctx context.Context, detail projects
 		runtimeError = runtimeStatus.Error
 	}
 	if runtimeState == string(runtime.StateRunning) {
-		statusLabel, statusClass = "Running", "running"
+		statusLabel, statusClass = "En cours", "running"
 	} else if runtimeState == string(runtime.StateFailed) {
-		statusLabel, statusClass = "Failed", "failed"
+		statusLabel, statusClass = "Échoué", "failed"
 	}
 	ports := h.assignedPorts(ctx, detail.Project.ID)
 	mainPort := "—"
@@ -571,18 +571,18 @@ func (h *ProjectsHandler) projectAccess(ctx context.Context, project db.Project)
 }
 
 func aiPrompt(proxied, direct string) string {
-	return "PortD is an internal project hub that gives existing applications two ways to open:\n" +
-		"- Proxied mode: " + proxied + " — a clean shared URL under PortD, which may require a framework base path.\n" +
-		"- Direct mode: " + direct + " — the app's server and main port, with no PortD prefix and no app changes required.\n\n" +
-		"My application is currently being prepared for Proxied mode. Identify the framework and configure its base path so " +
-		"client-side routing, root-relative assets, redirects, forms, API calls, and SSR-generated links work under the Proxied URL. " +
-		"Do not rewrite unrelated code or break Direct mode. Tell me exactly which file to edit, explain why, and provide the smallest safe patch. " +
-		"If this application cannot reliably support a path prefix, say so and recommend Direct mode instead."
+	return "PortD est un centre de projets interne qui propose deux façons d'ouvrir les applications existantes :\n" +
+		"- Mode proxy : " + proxied + " — une URL partagée propre sous PortD, qui peut exiger un chemin de base du framework.\n" +
+		"- Mode direct : " + direct + " — le serveur de l'application et son port principal, sans préfixe PortD ni modification requise.\n\n" +
+		"Mon application est en cours de préparation pour le mode proxy. Identifie le framework et configure son chemin de base pour que " +
+		"le routage côté client, les ressources à chemin absolu, les redirections, les formulaires, les appels API et les liens générés côté serveur fonctionnent sous l'URL proxy. " +
+		"Ne réécris pas de code sans rapport et ne casse pas le mode direct. Dis-moi exactement quel fichier modifier, explique pourquoi, et fournis le plus petit correctif sûr. " +
+		"Si cette application ne peut pas supporter un préfixe de chemin de façon fiable, dis-le et recommande plutôt le mode direct."
 }
 
 func accessModeLabel(mode string) string {
 	if mode == projectsvc.AccessModeProxied {
-		return "Proxied"
+		return "Via proxy"
 	}
 	return "Direct"
 }
@@ -593,14 +593,14 @@ func quickstarts(proxied string) []pages.QuickstartItem {
 		base = strings.TrimRight(parsed.Path, "/")
 	}
 	return []pages.QuickstartItem{
-		{Key: "react-router", Name: "React Router", File: "src/main.jsx or src/main.tsx", Description: "Pass the project path as your router basename.", Snippet: `<BrowserRouter basename="` + base + `">`},
-		{Key: "vite", Name: "Vite", File: "vite.config.js or vite.config.ts", Description: "Set the base so bundled assets resolve under the project path.", Snippet: "base: '" + base + "/'"},
-		{Key: "next", Name: "Next.js", File: "next.config.js or next.config.mjs", Description: "Set basePath once for links and assets.", Snippet: "basePath: '" + base + "'"},
-		{Key: "vue-router", Name: "Vue Router", File: "src/router/index.js or src/router/index.ts", Description: "Pass the project path to history mode.", Snippet: "createWebHistory('" + base + "/')"},
-		{Key: "nuxt", Name: "Nuxt", File: "nuxt.config.ts or nuxt.config.js", Description: "Set baseURL for routing and assets.", Snippet: "app: { baseURL: '" + base + "/' }"},
-		{Key: "angular", Name: "Angular", File: "src/index.html", Description: "Set the document base for router and asset URLs.", Snippet: `<base href="` + base + `/">`},
-		{Key: "sveltekit", Name: "SvelteKit", File: "svelte.config.js", Description: "Set the adapter base path.", Snippet: "paths: { base: '" + base + "' }"},
-		{Key: "hash-routing", Name: "Hash routing", File: "No file change", Description: "Hash routes already work under a path prefix.", Snippet: "No configuration needed", NoConfig: true},
+		{Key: "react-router", Name: "React Router", File: "src/main.jsx ou src/main.tsx", Description: "Passez le chemin du projet comme basename du routeur.", Snippet: `<BrowserRouter basename="` + base + `">`},
+		{Key: "vite", Name: "Vite", File: "vite.config.js ou vite.config.ts", Description: "Définissez la base pour résoudre les ressources sous le chemin du projet.", Snippet: "base: '" + base + "/'"},
+		{Key: "next", Name: "Next.js", File: "next.config.js ou next.config.mjs", Description: "Définissez basePath une fois pour les liens et les ressources.", Snippet: "basePath: '" + base + "'"},
+		{Key: "vue-router", Name: "Vue Router", File: "src/router/index.js ou src/router/index.ts", Description: "Passez le chemin du projet au mode historique.", Snippet: "createWebHistory('" + base + "/')"},
+		{Key: "nuxt", Name: "Nuxt", File: "nuxt.config.ts ou nuxt.config.js", Description: "Définissez baseURL pour le routage et les ressources.", Snippet: "app: { baseURL: '" + base + "/' }"},
+		{Key: "angular", Name: "Angular", File: "src/index.html", Description: "Définissez la base du document pour le routeur et les URL.", Snippet: `<base href="` + base + `/">`},
+		{Key: "sveltekit", Name: "SvelteKit", File: "svelte.config.js", Description: "Définissez le chemin de base de l'adaptateur.", Snippet: "paths: { base: '" + base + "' }"},
+		{Key: "hash-routing", Name: "Routage par hash", File: "Aucun fichier à modifier", Description: "Les routes par hash fonctionnent déjà sous un préfixe de chemin.", Snippet: "Aucune configuration requise", NoConfig: true},
 	}
 }
 

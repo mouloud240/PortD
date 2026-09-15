@@ -97,7 +97,7 @@ func (w *responseWriter) Status() int {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
-	status, message := http.StatusInternalServerError, "Internal server error"
+	status, message := http.StatusInternalServerError, "Erreur interne du serveur"
 	var httpErr *HTTPError
 	if errors.As(err, &httpErr) {
 		status, message = httpErr.Status, httpErr.Message

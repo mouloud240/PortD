@@ -342,19 +342,19 @@ func activityLiClass(failed bool) string {
 func activityCategory(event string) (string, string) {
 	switch {
 	case strings.HasPrefix(event, "project."):
-		return "Projects", "neutral"
+		return "Projets", "neutral"
 	case strings.HasPrefix(event, "runtime."):
-		return "Runtime", "warning"
+		return "Exécution", "warning"
 	case strings.HasPrefix(event, "port."):
 		return "Ports", "info"
 	case strings.HasPrefix(event, "intern."):
-		return "Interns", "running"
+		return "Stagiaires", "running"
 	case strings.HasPrefix(event, "auth."):
 		return "Auth", "accent"
 	case strings.HasPrefix(event, "healthcheck."):
-		return "Healthchecks", "info"
+		return "Contrôles", "info"
 	default:
-		return "Other", "neutral"
+		return "Autre", "neutral"
 	}
 }
 
@@ -368,39 +368,39 @@ func CategoryName(prefix string) string {
 func activityLabel(event string) string {
 	switch event {
 	case "auth.login":
-		return "Signed in"
+		return "Connecté"
 	case "auth.logout":
-		return "Signed out"
+		return "Déconnecté"
 	case "project.create":
-		return "Project created"
+		return "Projet créé"
 	case "project.update":
-		return "Project updated"
+		return "Projet mis à jour"
 	case "project.archive":
-		return "Project archived"
+		return "Projet archivé"
 	case "runtime.start":
-		return "Runtime started"
+		return "Exécution démarrée"
 	case "runtime.stop":
-		return "Runtime stopped"
+		return "Exécution arrêtée"
 	case "runtime.configure":
-		return "Startup file saved"
+		return "Fichier de démarrage enregistré"
 	case "port.allocate":
-		return "Ports allocated"
+		return "Ports attribués"
 	case "port.release":
-		return "Port released"
+		return "Port libéré"
 	case "port.claim":
-		return "Port claimed"
+		return "Port réclamé"
 	case "port.promote":
-		return "Port promoted"
+		return "Port promu"
 	case "healthcheck.add":
-		return "Healthcheck added"
+		return "Contrôle ajouté"
 	case "healthcheck.remove":
-		return "Healthcheck removed"
+		return "Contrôle retiré"
 	case "intern.create":
-		return "Intern added"
+		return "Stagiaire ajouté"
 	case "intern.update":
-		return "Intern updated"
+		return "Stagiaire mis à jour"
 	case "intern.profile":
-		return "Profile updated"
+		return "Profil mis à jour"
 	default:
 		action := event
 		if i := strings.LastIndex(action, "."); i >= 0 {
@@ -432,17 +432,17 @@ func portCountOrDefault(n int) int {
 func lifecycleLabel(status string) string {
 	switch status {
 	case "draft":
-		return "Draft"
+		return "Brouillon"
 	case "ready":
-		return "Ready"
+		return "Prêt"
 	case "running":
-		return "Running"
+		return "En cours"
 	case "stopped":
-		return "Stopped"
+		return "Arrêté"
 	case "failed":
-		return "Failed"
+		return "Échoué"
 	case "archived":
-		return "Archived"
+		return "Archivé"
 	default:
 		return status
 	}
@@ -454,19 +454,19 @@ func LifecycleLabel(status string) string { return lifecycleLabel(status) }
 func lifecyclePhase(status string) string {
 	switch status {
 	case "draft":
-		return "Define scope and owners"
+		return "Définir la portée et les responsables"
 	case "ready":
-		return "Ready for first deploy"
+		return "Prêt pour le premier déploiement"
 	case "running":
-		return "Active development runtime"
+		return "Exécution de développement active"
 	case "stopped":
-		return "Paused — restart when needed"
+		return "En pause — redémarrez si besoin"
 	case "failed":
-		return "Investigate runtime failure"
+		return "Examiner l'échec d'exécution"
 	case "archived":
-		return "Cleanup handoff"
+		return "Transfert de nettoyage"
 	default:
-		return "Current phase"
+		return "Phase actuelle"
 	}
 }
 
@@ -488,11 +488,11 @@ func LifecycleClass(status string) string { return lifecycleClass(status) }
 func statusBadge(shouldRun, isLive bool) (label, class string) {
 	switch {
 	case isLive:
-		return "Running", "running"
+		return "En cours", "running"
 	case shouldRun:
 		return "Attention", "warning"
 	default:
-		return "Down", "down"
+		return "Hors ligne", "down"
 	}
 }
 

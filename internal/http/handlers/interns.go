@@ -28,12 +28,12 @@ func (h *InternsHandler) ListPage(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	return httperr.Render(w, r, http.StatusOK, pages.InternsPage("Interns", r.URL.Path, search, state, pages.ListItems(items)))
+	return httperr.Render(w, r, http.StatusOK, pages.InternsPage("Stagiaires", r.URL.Path, search, state, pages.ListItems(items)))
 }
 
 func (h *InternsHandler) NewPage(w http.ResponseWriter, r *http.Request) error {
 	return httperr.Render(w, r, http.StatusOK, pages.InternFormPage(pages.InternFormData{
-		Title:  "New intern",
+		Title:  "Nouveau stagiaire",
 		Path:   "/interns",
 		Action: "/interns",
 		Active: true,
@@ -43,10 +43,10 @@ func (h *InternsHandler) NewPage(w http.ResponseWriter, r *http.Request) error {
 
 func (h *InternsHandler) CreatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	form := pages.InternFormData{
-		Title:      "New intern",
+		Title:      "Nouveau stagiaire",
 		Path:       "/interns",
 		Action:     "/interns",
 		FullName:   r.FormValue("full_name"),
@@ -59,10 +59,10 @@ func (h *InternsHandler) CreatePost(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		switch {
 		case errors.Is(err, internsvc.ErrInvalid):
-			form.Error = "Full name, username, and password are required."
+			form.Error = "Le nom complet, le nom d'utilisateur et le mot de passe sont requis."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.InternFormPage(form))
 		case errors.Is(err, internsvc.ErrConflict):
-			form.Error = "That username or email is already taken."
+			form.Error = "Ce nom d'utilisateur ou cet e-mail est déjà pris."
 			return httperr.Render(w, r, http.StatusConflict, pages.InternFormPage(form))
 		default:
 			return err
@@ -82,12 +82,12 @@ func (h *InternsHandler) DetailPage(w http.ResponseWriter, r *http.Request) erro
 	intern, err := h.service.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		if errors.Is(err, internsvc.ErrNotFound) {
-			return httperr.NotFound("Intern not found.", err)
+			return httperr.NotFound("Stagiaire introuvable.", err)
 		}
 		return err
 	}
 	return httperr.Render(w, r, http.StatusOK, pages.InternFormPage(pages.InternFormData{
-		Title:      "Edit intern",
+		Title:      "Modifier le stagiaire",
 		Path:       "/interns",
 		Action:     "/interns/" + intern.ID,
 		ID:         intern.ID,
@@ -100,11 +100,11 @@ func (h *InternsHandler) DetailPage(w http.ResponseWriter, r *http.Request) erro
 
 func (h *InternsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	active, _ := strconv.ParseBool(r.FormValue("active"))
 	form := pages.InternFormData{
-		Title:      "Edit intern",
+		Title:      "Modifier le stagiaire",
 		Path:       "/interns",
 		Action:     "/interns/" + r.PathValue("id"),
 		ID:         r.PathValue("id"),
@@ -117,13 +117,13 @@ func (h *InternsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		switch {
 		case errors.Is(err, internsvc.ErrInvalid):
-			form.Error = "Full name and username are required."
+			form.Error = "Le nom complet et le nom d'utilisateur sont requis."
 			return httperr.Render(w, r, http.StatusUnprocessableEntity, pages.InternFormPage(form))
 		case errors.Is(err, internsvc.ErrConflict):
-			form.Error = "That username or email is already taken."
+			form.Error = "Ce nom d'utilisateur ou cet e-mail est déjà pris."
 			return httperr.Render(w, r, http.StatusConflict, pages.InternFormPage(form))
 		case errors.Is(err, sql.ErrNoRows):
-			return httperr.NotFound("Intern not found.", err)
+			return httperr.NotFound("Stagiaire introuvable.", err)
 		default:
 			return err
 		}

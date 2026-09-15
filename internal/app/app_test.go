@@ -141,7 +141,7 @@ func TestLoginRecordsAuditAndActivityPageGated(t *testing.T) {
 	}
 	if response := activity(adminSession.Token); response.Code != http.StatusOK {
 		t.Fatalf("admin activity status = %d, want %d", response.Code, http.StatusOK)
-	} else if body := response.Body.String(); !strings.Contains(body, "Audit trail") {
+	} else if body := response.Body.String(); !strings.Contains(body, "Historique") {
 		t.Errorf("activity page should describe the audit trail")
 	}
 	if response := activity(""); response.Code != http.StatusFound && response.Code != http.StatusSeeOther && response.Code != http.StatusUnauthorized {
@@ -192,7 +192,7 @@ func TestDetectPostRegistersDirectories(t *testing.T) {
 		t.Fatalf("scan status = %d, want %d", scanResponse.Code, http.StatusOK)
 	}
 	scanBody := scanResponse.Body.String()
-	for _, name := range []string{"found-app", "skipped-app", "Add selected"} {
+	for _, name := range []string{"found-app", "skipped-app", "Ajouter la sélection"} {
 		if !strings.Contains(scanBody, name) {
 			t.Fatalf("scan page should contain %q", name)
 		}
@@ -258,7 +258,7 @@ func TestPortsPageShowsReserved(t *testing.T) {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
 	body := response.Body.String()
-	for _, want := range []string{"Reserved, not listening", "idle-app"} {
+	for _, want := range []string{"Réservés, sans écoute", "idle-app"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("ports page should contain %q", want)
 		}
@@ -347,7 +347,7 @@ func TestInternNewPage(t *testing.T) {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
 	body := response.Body.String()
-	if !strings.Contains(body, "Save intern") {
+	if !strings.Contains(body, "Enregistrer le stagiaire") {
 		t.Errorf("form should contain Save intern button")
 	}
 	if !strings.Contains(body, "bg-brand-blue") {
@@ -414,14 +414,14 @@ func TestInternCreateValidationConflictAndNotFound(t *testing.T) {
 	if detailResponse.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailResponse.Code, http.StatusOK)
 	}
-	if !strings.Contains(detailResponse.Body.String(), "Deactivate account") {
+	if !strings.Contains(detailResponse.Body.String(), "Désactiver le compte") {
 		t.Errorf("edit form should contain the Deactivate account button")
 	}
 	duplicate := post("/interns", valid)
 	if duplicate.Code != http.StatusConflict {
 		t.Fatalf("duplicate create status = %d, want %d", duplicate.Code, http.StatusConflict)
 	}
-	if !strings.Contains(duplicate.Body.String(), "already taken") {
+	if !strings.Contains(duplicate.Body.String(), "déjà pris") {
 		t.Errorf("duplicate create should explain the conflict")
 	}
 

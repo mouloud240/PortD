@@ -19,7 +19,7 @@ import (
 
 func (h *ProjectsHandler) DetectPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	added, err := h.service.Import(r.Context(), r.Form["slugs"])
 	if err != nil {
@@ -39,7 +39,7 @@ func (h *ProjectsHandler) DetectPost(w http.ResponseWriter, r *http.Request) err
 
 func (h *ProjectsHandler) PromotePortPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	port, ok := parsePort(r.FormValue("port"))
@@ -64,7 +64,7 @@ func (h *ProjectsHandler) RuntimeStartPost(w http.ResponseWriter, r *http.Reques
 	project, err := h.service.GetBySlug(r.Context(), slug)
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrNotFound) {
-			return httperr.NotFound("Project not found.", err)
+			return httperr.NotFound("Projet introuvable.", err)
 		}
 		return err
 	}
@@ -83,12 +83,12 @@ func (h *ProjectsHandler) RuntimeStartPost(w http.ResponseWriter, r *http.Reques
 			Detail:     err.Error(),
 		})
 		if errors.Is(err, runtime.ErrStartupMissing) {
-			return h.runtimeBack(w, r, slug, "The startup file is missing. Add the configured file to the project directory before starting it.")
+			return h.runtimeBack(w, r, slug, "Le fichier de démarrage est manquant. Ajoutez le fichier configuré dans le dossier du projet avant de le démarrer.")
 		}
 		if errors.Is(err, runtime.ErrAlreadyRunning) {
-			return h.runtimeBack(w, r, slug, "This project is already running.")
+			return h.runtimeBack(w, r, slug, "Ce projet est déjà en cours.")
 		}
-		return h.runtimeBack(w, r, slug, "The project could not be started.")
+		return h.runtimeBack(w, r, slug, "Le projet n'a pas pu être démarré.")
 	}
 	slog.Info("runtime start requested", "slug", slug, "pid", status.PID, "file", status.File)
 	if err := h.service.SetRuntimeIntent(r.Context(), slug, true, "running"); err != nil {
@@ -112,7 +112,7 @@ func (h *ProjectsHandler) RuntimeStopPost(w http.ResponseWriter, r *http.Request
 	project, err := h.service.GetBySlug(r.Context(), slug)
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrNotFound) {
-			return httperr.NotFound("Project not found.", err)
+			return httperr.NotFound("Projet introuvable.", err)
 		}
 		return err
 	}
@@ -126,7 +126,7 @@ func (h *ProjectsHandler) RuntimeStopPost(w http.ResponseWriter, r *http.Request
 			Outcome:    activitysvc.OutcomeFailure,
 			Detail:     err.Error(),
 		})
-		return h.runtimeBack(w, r, slug, "The project could not be stopped.")
+		return h.runtimeBack(w, r, slug, "Le projet n'a pas pu être arrêté.")
 	}
 	slog.Info("runtime stop requested", "slug", slug, "pid", before.PID)
 	if err := h.service.SetRuntimeIntent(r.Context(), slug, false, "stopped"); err != nil {
@@ -144,14 +144,14 @@ func (h *ProjectsHandler) RuntimeStopPost(w http.ResponseWriter, r *http.Request
 func (h *ProjectsHandler) RuntimeConfigurePost(w http.ResponseWriter, r *http.Request) error {
 	slug := r.PathValue("slug")
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	if err := h.service.SetStartupCommand(r.Context(), slug, r.FormValue("startup_command")); err != nil {
 		if errors.Is(err, projectsvc.ErrNotFound) {
-			return httperr.NotFound("Project not found.", err)
+			return httperr.NotFound("Projet introuvable.", err)
 		}
 		if errors.Is(err, projectsvc.ErrInvalid) {
-			return h.runtimeBack(w, r, slug, "Choose a startup file before saving.")
+			return h.runtimeBack(w, r, slug, "Choisissez un fichier de démarrage avant d'enregistrer.")
 		}
 		return err
 	}
@@ -172,7 +172,7 @@ func (h *ProjectsHandler) runtimeBack(w http.ResponseWriter, r *http.Request, sl
 
 func (h *ProjectsHandler) AllocatePortsPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	n := 1
@@ -198,7 +198,7 @@ func (h *ProjectsHandler) AllocatePortsPost(w http.ResponseWriter, r *http.Reque
 
 func (h *ProjectsHandler) ReleasePortPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	port, ok := parsePort(r.FormValue("port"))
@@ -220,7 +220,7 @@ func (h *ProjectsHandler) ReleasePortPost(w http.ResponseWriter, r *http.Request
 
 func (h *ProjectsHandler) ClaimPortPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	port, err := strconv.Atoi(strings.TrimSpace(r.FormValue("port")))
@@ -242,7 +242,7 @@ func (h *ProjectsHandler) ClaimPortPost(w http.ResponseWriter, r *http.Request) 
 
 func (h *ProjectsHandler) ReplaceMainPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	claim := 0
@@ -274,7 +274,7 @@ func (h *ProjectsHandler) ReplaceMainPost(w http.ResponseWriter, r *http.Request
 
 func (h *ProjectsHandler) AddHealthcheckPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	expected := 0
@@ -301,7 +301,7 @@ func (h *ProjectsHandler) AddHealthcheckPost(w http.ResponseWriter, r *http.Requ
 
 func (h *ProjectsHandler) RemoveHealthcheckPost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return httperr.BadRequest("Invalid form submission.", err)
+		return httperr.BadRequest("Envoi de formulaire invalide.", err)
 	}
 	slug := r.PathValue("slug")
 	if err := h.service.RemoveHealthcheck(r.Context(), slug, r.PathValue("id")); err != nil {

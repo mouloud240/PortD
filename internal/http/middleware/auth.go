@@ -32,7 +32,7 @@ func RequireAdmin(service *auth.Service) func(httperr.Handler) httperr.Handler {
 		return RequireSession(service)(func(w http.ResponseWriter, r *http.Request) error {
 			principal, _ := auth.PrincipalFrom(r.Context())
 			if !principal.IsAdmin() {
-				return httperr.Forbidden("Administrator access required", nil)
+				return httperr.Forbidden("Accès administrateur requis", nil)
 			}
 			return next(w, r)
 		})
@@ -46,12 +46,12 @@ func RequireProjectMember(authService *auth.Service, projectService *projectsvc.
 			ok, err := projectService.CanManage(r.Context(), r.PathValue("slug"), principal)
 			if err != nil {
 				if errors.Is(err, projectsvc.ErrNotFound) {
-					return httperr.NotFound("Project not found.", err)
+					return httperr.NotFound("Projet introuvable.", err)
 				}
 				return err
 			}
 			if !ok {
-				return httperr.Forbidden("You are not assigned to this project.", nil)
+				return httperr.Forbidden("Vous n'êtes pas assigné à ce projet.", nil)
 			}
 			return next(w, r)
 		})

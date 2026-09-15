@@ -21,10 +21,10 @@ func TestActivityItemsHumanizesRows(t *testing.T) {
 		t.Fatalf("items = %d, want 4", len(items))
 	}
 
-	if items[0].EventLabel != "Project created" || items[0].Category != "Projects" || items[0].CategoryClass != "neutral" {
+	if items[0].EventLabel != "Projet créé" || items[0].Category != "Projets" || items[0].CategoryClass != "neutral" {
 		t.Errorf("project item = %+v", items[0])
 	}
-	if items[1].EventLabel != "Runtime started" || items[1].Category != "Runtime" || items[1].CategoryClass != "warning" {
+	if items[1].EventLabel != "Exécution démarrée" || items[1].Category != "Exécution" || items[1].CategoryClass != "warning" {
 		t.Errorf("runtime item = %+v", items[1])
 	}
 	if !items[1].Failed || items[1].OutcomeClass != "down" {
@@ -33,7 +33,7 @@ func TestActivityItemsHumanizesRows(t *testing.T) {
 	if items[1].ActorShort != "intern-a" || items[1].Actor != "intern-abcdef-1234" {
 		t.Errorf("actor shortening = %+v", items[1])
 	}
-	if items[2].Actor != "admin" || items[2].EventLabel != "Signed in" || items[2].Category != "Auth" {
+	if items[2].Actor != "admin" || items[2].EventLabel != "Connecté" || items[2].Category != "Auth" {
 		t.Errorf("login item = %+v", items[2])
 	}
 	if items[2].Time != "not-a-time" {
@@ -42,7 +42,7 @@ func TestActivityItemsHumanizesRows(t *testing.T) {
 	if items[0].Time == "2026-09-12T10:00:00Z" {
 		t.Errorf("parsable time should be reformatted, got %q", items[0].Time)
 	}
-	if items[3].EventLabel != "Action here" || items[3].Category != "Other" {
+	if items[3].EventLabel != "Action here" || items[3].Category != "Autre" {
 		t.Errorf("unknown event fallback = %+v", items[3])
 	}
 	if got := CategoryName("port"); got != "Ports" {
