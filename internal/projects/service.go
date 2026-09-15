@@ -121,11 +121,16 @@ func (s *Service) SetStartupCommand(ctx context.Context, slug, command string) e
 	if command == "" {
 		return ErrInvalid
 	}
-	return s.queries.SetProjectStartupCommand(ctx, db.SetProjectStartupCommandParams{
+	if err := s.queries.SetProjectStartupCommand(ctx, db.SetProjectStartupCommandParams{
 		StartupCommand: command,
 		UpdatedAt:      time.Now().UTC().Format(time.RFC3339Nano),
 		Slug:           slug,
-	})
+	}); err != nil {
+		slog.Error("runtime configure failed", "slug", slug, "error", err)
+		return err
+	}
+	slog.Info("runtime configured", "slug", slug, "command", command)
+	return nil
 }
 
 func (s *Service) SetRuntimeIntent(ctx context.Context, slug string, shouldRun bool, lifecycle string) error {
@@ -133,12 +138,17 @@ func (s *Service) SetRuntimeIntent(ctx context.Context, slug string, shouldRun b
 	if shouldRun {
 		value = 1
 	}
-	return s.queries.SetProjectRuntimeIntent(ctx, db.SetProjectRuntimeIntentParams{
+	if err := s.queries.SetProjectRuntimeIntent(ctx, db.SetProjectRuntimeIntentParams{
 		ShouldRun:       value,
 		LifecycleStatus: lifecycle,
 		UpdatedAt:       time.Now().UTC().Format(time.RFC3339Nano),
 		Slug:            slug,
-	})
+	}); err != nil {
+		slog.Error("runtime intent update failed", "slug", slug, "should_run", shouldRun, "error", err)
+		return err
+	}
+	slog.Info("runtime intent updated", "slug", slug, "should_run", shouldRun, "lifecycle", lifecycle)
+	return nil
 }
 
 func (s *Service) List(ctx context.Context, search, lifecycleStatus string, isLive int64) ([]ProjectWithInterns, error) {
@@ -424,6 +434,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if s.scaffold != nil {
 		s.writeReadme(ctx, project, accessMode)
 	}
+	slog.Info("project created", "slug", slug, "dir", directory, "interns", len(internIDs), "ports", in.PortCount, "access", accessMode)
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
 }
 
@@ -659,6 +670,7 @@ func (s *Service) Update(ctx context.Context, slug string, in UpdateInput) (Proj
 	if err != nil {
 		return ProjectWithInterns{}, err
 	}
+	slog.Info("project updated", "slug", slug, "lifecycle", lifecycle, "access", accessMode)
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
 }
 
@@ -687,6 +699,7 @@ func (s *Service) Archive(ctx context.Context, slug string) (ProjectWithInterns,
 	if err != nil {
 		return ProjectWithInterns{}, err
 	}
+	slog.Info("project archived", "slug", slug)
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
 }
 
@@ -714,10 +727,15 @@ func (s *Service) AddPorts(ctx context.Context, slug string, n int) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, err := portsvc.Allocate(ctx, s.queries.WithTx(tx), projectID, n); err != nil {
+	ports, err := portsvc.Allocate(ctx, s.queries.WithTx(tx), projectID, n)
+	if err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	slog.Info("ports allocated", "slug", slug, "count", n, "ports", portNumbers(ports))
+	return nil
 }
 
 func (s *Service) ClaimPort(ctx context.Context, slug string, port int) error {
@@ -725,8 +743,12 @@ func (s *Service) ClaimPort(ctx context.Context, slug string, port int) error {
 	if err != nil {
 		return err
 	}
-	_, err = portsvc.ClaimPort(ctx, s.queries, projectID, port)
-	return err
+	if _, err = portsvc.ClaimPort(ctx, s.queries, projectID, port); err != nil {
+		slog.Error("port claim failed", "slug", slug, "port", port, "error", err)
+		return err
+	}
+	slog.Info("port claimed", "slug", slug, "port", port)
+	return nil
 }
 
 func (s *Service) ReleasePort(ctx context.Context, slug string, port int64) error {
@@ -734,7 +756,12 @@ func (s *Service) ReleasePort(ctx context.Context, slug string, port int64) erro
 	if err != nil {
 		return err
 	}
-	return portsvc.ReleasePort(ctx, s.queries, projectID, port)
+	if err := portsvc.ReleasePort(ctx, s.queries, projectID, port); err != nil {
+		slog.Error("port release failed", "slug", slug, "port", port, "error", err)
+		return err
+	}
+	slog.Info("port released", "slug", slug, "port", port)
+	return nil
 }
 
 func (s *Service) ReplaceMainPort(ctx context.Context, slug string, claim int, releaseOld bool) (int64, bool, error) {
@@ -742,7 +769,13 @@ func (s *Service) ReplaceMainPort(ctx context.Context, slug string, claim int, r
 	if err != nil {
 		return 0, false, err
 	}
-	return portsvc.ReplaceMain(ctx, s.db, s.queries, projectID, claim, releaseOld)
+	newPort, released, err := portsvc.ReplaceMain(ctx, s.db, s.queries, projectID, claim, releaseOld)
+	if err != nil {
+		slog.Error("port replace-main failed", "slug", slug, "claim", claim, "error", err)
+		return 0, false, err
+	}
+	slog.Info("port replace-main", "slug", slug, "new_port", newPort, "old_released", released)
+	return newPort, released, nil
 }
 
 func (s *Service) PromotePort(ctx context.Context, slug string, port int64) error {
@@ -750,7 +783,12 @@ func (s *Service) PromotePort(ctx context.Context, slug string, port int64) erro
 	if err != nil {
 		return err
 	}
-	return portsvc.PromoteMain(ctx, s.db, s.queries, projectID, port)
+	if err := portsvc.PromoteMain(ctx, s.db, s.queries, projectID, port); err != nil {
+		slog.Error("port promote failed", "slug", slug, "port", port, "error", err)
+		return err
+	}
+	slog.Info("port promoted to main", "slug", slug, "port", port)
+	return nil
 }
 
 func (s *Service) AddHealthcheck(ctx context.Context, slug, endpoint string, expectedStatus int) (db.ProjectHealthcheck, error) {
@@ -768,13 +806,19 @@ func (s *Service) AddHealthcheck(ctx context.Context, slug, endpoint string, exp
 	if expectedStatus < 200 || expectedStatus > 599 {
 		return db.ProjectHealthcheck{}, ErrInvalid
 	}
-	return s.queries.AddProjectHealthcheck(ctx, db.AddProjectHealthcheckParams{
+	check, err := s.queries.AddProjectHealthcheck(ctx, db.AddProjectHealthcheckParams{
 		ID:             uuid.NewString(),
 		ProjectID:      projectID,
 		Endpoint:       endpoint,
 		ExpectedStatus: int64(expectedStatus),
 		CreatedAt:      time.Now().UTC().Format(time.RFC3339Nano),
 	})
+	if err != nil {
+		slog.Error("healthcheck add failed", "slug", slug, "endpoint", endpoint, "error", err)
+		return db.ProjectHealthcheck{}, err
+	}
+	slog.Info("healthcheck added", "slug", slug, "id", check.ID, "endpoint", endpoint, "expect", expectedStatus)
+	return check, nil
 }
 
 func (s *Service) RemoveHealthcheck(ctx context.Context, slug, id string) error {
@@ -782,7 +826,12 @@ func (s *Service) RemoveHealthcheck(ctx context.Context, slug, id string) error 
 	if err != nil {
 		return err
 	}
-	return s.queries.DeleteProjectHealthcheck(ctx, db.DeleteProjectHealthcheckParams{ID: id, ProjectID: projectID})
+	if err := s.queries.DeleteProjectHealthcheck(ctx, db.DeleteProjectHealthcheckParams{ID: id, ProjectID: projectID}); err != nil {
+		slog.Error("healthcheck remove failed", "slug", slug, "id", id, "error", err)
+		return err
+	}
+	slog.Info("healthcheck removed", "slug", slug, "id", id)
+	return nil
 }
 
 func validHealthEndpoint(endpoint string) bool {
@@ -889,4 +938,12 @@ func (s *Service) ListHealthchecks(ctx context.Context, projectID string) ([]db.
 // MainPort returns the project's main port.
 func (s *Service) MainPort(ctx context.Context, projectID string) (db.Port, error) {
 	return s.queries.GetProjectMainPort(ctx, projectID)
+}
+
+func portNumbers(ports []db.Port) []int64 {
+	out := make([]int64, 0, len(ports))
+	for _, p := range ports {
+		out = append(out, p.Port)
+	}
+	return out
 }

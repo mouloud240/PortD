@@ -101,8 +101,11 @@ func New(cfg config.Config) (*App, error) {
 	application.wait.Add(1)
 	go func() {
 		defer application.wait.Done()
-		_ = healthPoller.Run(healthContext)
+		if err := healthPoller.Run(healthContext); err != nil {
+			slog.Info("healthcheck poller stopped", "error", err)
+		}
 	}()
+	slog.Info("application built", "db", cfg.DBPath, "projects_dir", cfg.ProjectsDir, "base_url", cfg.BaseURL)
 
 	return application, nil
 }
@@ -120,13 +123,22 @@ func (a *App) ListenAndServe(addr string) error {
 
 // Shutdown gracefully stops the HTTP server.
 func (a *App) Shutdown(ctx context.Context) error {
+	slog.Info("shutting down PortD")
 	a.cancel()
 	runtimeErr := a.runtime.StopAll(ctx)
+	if runtimeErr != nil {
+		slog.Error("runtime stop-all failed", "error", runtimeErr)
+	}
 	a.activity.Close()
 	err := a.server.Shutdown(ctx)
 	a.wait.Wait()
 	if err == nil {
 		err = runtimeErr
+	}
+	if err != nil {
+		slog.Error("shutdown failed", "error", err)
+	} else {
+		slog.Info("shutdown complete")
 	}
 	return err
 }

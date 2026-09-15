@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -58,8 +59,10 @@ func (s FileScaffolder) Create(ctx context.Context, scaffold Scaffold) error {
 		return fmt.Errorf("scaffold directory and slug are required")
 	}
 	if err := os.MkdirAll(scaffold.Directory, 0o755); err != nil {
+		slog.Error("project directory create failed", "slug", scaffold.Slug, "dir", scaffold.Directory, "error", err)
 		return err
 	}
+	slog.Info("project directory ready", "slug", scaffold.Slug, "dir", scaffold.Directory)
 	startup := filepath.Join(scaffold.Directory, "start.sh")
 	if err := writeIfAbsent(startup, "#!/bin/sh\nset -eu\n", 0o755); err != nil {
 		return err

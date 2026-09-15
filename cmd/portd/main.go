@@ -14,8 +14,10 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
 	cfg := config.Load()
+	logger.Info("loaded configuration", "addr", cfg.HTTPAddr, "db", cfg.DBPath, "projects_dir", cfg.ProjectsDir, "base_url", cfg.BaseURL)
 	application, err := app.New(cfg)
 	if err != nil {
 		logger.Error("build application", "error", err)
@@ -34,10 +36,13 @@ func main() {
 	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-signalContext.Done()
+	logger.Info("shutdown signal received")
 
 	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := application.Shutdown(shutdownContext); err != nil {
 		logger.Error("graceful shutdown failed", "error", err)
+		return
 	}
+	logger.Info("PortD stopped")
 }

@@ -108,7 +108,7 @@ func (m *Manager) Start(ctx context.Context, project ManagedProject) (Status, er
 	executable, err := ResolveExecutable(project.Directory, project.Executable)
 
 	if err != nil {
-		slog.Log(context.Background(), slog.LevelError, "resolve executable", "error", err, "project", project.ID)
+		slog.Error("runtime resolve executable failed", "error", err, "project", project.ID, "dir", project.Directory, "file", project.Executable)
 		return Status{State: StateFailed, File: project.Executable}, err
 	}
 
@@ -130,8 +130,7 @@ func (m *Manager) Start(ctx context.Context, project ManagedProject) (Status, er
 	}
 	if err := command.Start(); err != nil {
 		m.mu.Unlock()
-		slog.Log(context.Background(), slog.LevelError, "resolve executable", "error", err, "project", project.ID)
-
+		slog.Error("runtime start failed", "error", err, "project", project.ID, "dir", project.Directory, "file", executable)
 		return Status{State: StateFailed, File: executable}, fmt.Errorf("runtime: start %s: %w", executable, err)
 	}
 	current := &process{
@@ -142,6 +141,7 @@ func (m *Manager) Start(ctx context.Context, project ManagedProject) (Status, er
 	m.processes[project.ID] = current
 	m.mu.Unlock()
 
+	slog.Info("runtime started", "project", project.ID, "pid", command.Process.Pid, "dir", project.Directory, "file", executable)
 	go m.wait(project.ID, current)
 	return current.status, nil
 }
@@ -154,9 +154,15 @@ func (m *Manager) Stop(ctx context.Context, projectID string) error {
 		return ErrNotRunning
 	}
 	current.status.State = StateStopping
+	pid := 0
+	if current.cmd.Process != nil {
+		pid = current.cmd.Process.Pid
+	}
+	slog.Info("runtime stopping", "project", projectID, "pid", pid)
 	err := terminateProcess(current.cmd)
 	m.mu.Unlock()
 	if err != nil {
+		slog.Error("runtime stop failed", "project", projectID, "pid", pid, "error", err)
 		return fmt.Errorf("runtime: stop project %s: %w", projectID, err)
 	}
 	select {
@@ -190,6 +196,9 @@ func (m *Manager) StopAll(ctx context.Context) error {
 		}
 	}
 	m.mu.Unlock()
+	if len(ids) > 0 {
+		slog.Info("runtime stopping all", "count", len(ids))
+	}
 	for _, id := range ids {
 		if err := m.Stop(ctx, id); err != nil && !errors.Is(err, ErrNotRunning) {
 			return err
@@ -205,15 +214,18 @@ func (m *Manager) wait(projectID string, current *process) {
 	if m.processes[projectID] != current {
 		return
 	}
+	pid := current.status.PID
 	current.cmd.Process = nil
 	if err != nil && current.status.State != StateStopping && !errors.Is(err, context.Canceled) {
 		current.status.State = StateFailed
 		current.status.Error = err.Error()
+		slog.Error("runtime process failed", "project", projectID, "pid", pid, "error", err)
 		close(current.done)
 		return
 	}
 	current.status.State = StateStopped
 	current.status.PID = 0
+	slog.Info("runtime stopped", "project", projectID, "pid", pid)
 	close(current.done)
 }
 

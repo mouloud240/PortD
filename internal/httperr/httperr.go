@@ -49,9 +49,9 @@ func Conflict(message string, err error) error {
 // Handle converts an error-returning handler into a standard HTTP handler.
 func Handle(handler Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tracked := &responseWriter{ResponseWriter: w}
+		tracked := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		if err := handler(tracked, r); err != nil && !tracked.wrote {
-			writeError(tracked, err)
+			writeError(tracked, r, err)
 		}
 	})
 }
@@ -71,11 +71,13 @@ func Render(w http.ResponseWriter, r *http.Request, status int, component templ.
 
 type responseWriter struct {
 	http.ResponseWriter
-	wrote bool
+	wrote  bool
+	status int
 }
 
 func (w *responseWriter) WriteHeader(status int) {
 	w.wrote = true
+	w.status = status
 	w.ResponseWriter.WriteHeader(status)
 }
 
@@ -86,13 +88,24 @@ func (w *responseWriter) Write(body []byte) (int, error) {
 	return w.ResponseWriter.Write(body)
 }
 
-func writeError(w http.ResponseWriter, err error) {
+// Status returns the captured response status for logging middleware.
+func (w *responseWriter) Status() int {
+	if w.status == 0 {
+		return http.StatusOK
+	}
+	return w.status
+}
+
+func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	status, message := http.StatusInternalServerError, "Internal server error"
 	var httpErr *HTTPError
 	if errors.As(err, &httpErr) {
 		status, message = httpErr.Status, httpErr.Message
+	}
+	if status >= 500 {
+		slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "status", status, "error", err)
 	} else {
-		slog.Error("request failed", "error", err)
+		slog.Info("request client error", "method", r.Method, "path", r.URL.Path, "status", status, "error", err)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

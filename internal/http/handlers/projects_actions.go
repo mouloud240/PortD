@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -67,12 +68,13 @@ func (h *ProjectsHandler) RuntimeStartPost(w http.ResponseWriter, r *http.Reques
 		}
 		return err
 	}
-	_, err = h.runtime.Start(r.Context(), runtime.ManagedProject{
+	status, err := h.runtime.Start(r.Context(), runtime.ManagedProject{
 		ID:         project.Project.ID,
 		Directory:  project.Project.Directory,
 		Executable: project.Project.StartupCommand,
 	})
 	if err != nil {
+		slog.Error("runtime start request failed", "slug", slug, "dir", project.Project.Directory, "file", project.Project.StartupCommand, "error", err)
 		h.activity.Record(r.Context(), activitysvc.Event{
 			EventType:  activitysvc.RuntimeStart,
 			EntityType: "project",
@@ -88,6 +90,7 @@ func (h *ProjectsHandler) RuntimeStartPost(w http.ResponseWriter, r *http.Reques
 		}
 		return h.runtimeBack(w, r, slug, "The project could not be started.")
 	}
+	slog.Info("runtime start requested", "slug", slug, "pid", status.PID, "file", status.File)
 	if err := h.service.SetRuntimeIntent(r.Context(), slug, true, "running"); err != nil {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
 		defer cancel()
@@ -113,7 +116,9 @@ func (h *ProjectsHandler) RuntimeStopPost(w http.ResponseWriter, r *http.Request
 		}
 		return err
 	}
+	before := h.runtime.Status(project.Project.ID)
 	if err := h.runtime.Stop(r.Context(), project.Project.ID); err != nil && !errors.Is(err, runtime.ErrNotRunning) {
+		slog.Error("runtime stop request failed", "slug", slug, "pid", before.PID, "error", err)
 		h.activity.Record(r.Context(), activitysvc.Event{
 			EventType:  activitysvc.RuntimeStop,
 			EntityType: "project",
@@ -123,6 +128,7 @@ func (h *ProjectsHandler) RuntimeStopPost(w http.ResponseWriter, r *http.Request
 		})
 		return h.runtimeBack(w, r, slug, "The project could not be stopped.")
 	}
+	slog.Info("runtime stop requested", "slug", slug, "pid", before.PID)
 	if err := h.service.SetRuntimeIntent(r.Context(), slug, false, "stopped"); err != nil {
 		return err
 	}
