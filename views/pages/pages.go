@@ -132,6 +132,7 @@ type ProjectFormData struct {
 	IsLive          bool
 	IsNew           bool
 	AccessMode      string
+	ProxyAvailable  bool
 	Interns         []InternOption
 }
 
@@ -168,6 +169,7 @@ type ProjectAccessData struct {
 	DirectURLLabel  string
 	ProxiedURL      string
 	ProxiedURLLabel string
+	ProxyAvailable  bool
 	Quickstarts     []QuickstartItem
 	AIPrompt        string
 }

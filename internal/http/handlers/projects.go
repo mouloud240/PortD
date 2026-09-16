@@ -120,6 +120,7 @@ func (h *ProjectsHandler) NewPage(w http.ResponseWriter, r *http.Request) error 
 		PortCount:       2,
 		IsNew:           true,
 		AccessMode:      projectsvc.AccessModeDirect,
+		ProxyAvailable:  h.service.ProxyHealthy(r.Context()),
 		Interns:         options,
 	}))
 }
@@ -147,6 +148,7 @@ func (h *ProjectsHandler) CreatePost(w http.ResponseWriter, r *http.Request) err
 		PortCount:       portCount,
 		IsNew:           true,
 		AccessMode:      r.FormValue("access_mode"),
+		ProxyAvailable:  h.service.ProxyHealthy(r.Context()),
 	}
 	internIDs := r.Form["intern_ids"]
 	options, err := h.internOptions(r, internIDs)
@@ -244,6 +246,7 @@ func (h *ProjectsHandler) EditPage(w http.ResponseWriter, r *http.Request) error
 		ShouldRun:       detail.Project.ShouldRun == 1,
 		IsLive:          detail.Project.IsLive == 1,
 		AccessMode:      detail.Project.AccessMode,
+		ProxyAvailable:  h.service.ProxyHealthy(r.Context()),
 		Ports:           h.assignedPorts(r.Context(), detail.Project.ID),
 		PortError:       r.URL.Query().Get("port_error"),
 		Interns:         options,
@@ -266,6 +269,7 @@ func (h *ProjectsHandler) UpdatePost(w http.ResponseWriter, r *http.Request) err
 		LifecycleStatus: r.FormValue("lifecycle_status"),
 		ShouldRun:       shouldRun,
 		AccessMode:      r.FormValue("access_mode"),
+		ProxyAvailable:  h.service.ProxyHealthy(r.Context()),
 	}
 	internIDs := r.Form["intern_ids"]
 	options, err := h.internOptions(r, internIDs)
@@ -552,6 +556,7 @@ func (h *ProjectsHandler) projectAccess(ctx context.Context, project db.Project)
 		direct = ""
 	}
 	proxied := h.service.ProjectURL(project.Slug)
+	proxyAvailable := h.service.ProxyHealthy(ctx)
 	access := pages.ProjectAccessData{
 		Mode:            project.AccessMode,
 		ModeLabel:       accessModeLabel(project.AccessMode),
@@ -559,13 +564,19 @@ func (h *ProjectsHandler) projectAccess(ctx context.Context, project db.Project)
 		DirectURLLabel:  urlLabel(direct),
 		ProxiedURL:      proxied,
 		ProxiedURLLabel: urlLabel(proxied),
+		ProxyAvailable:  proxyAvailable,
 		Quickstarts:     quickstarts(proxied),
 		AIPrompt:        aiPrompt(proxied, direct),
 	}
 
+	// While Caddy is down, everything behaves as direct: stored
+	// access_mode is untouched, so proxied projects recover on their own.
 	access.URL, access.URLLabel = access.ProxiedURL, access.ProxiedURLLabel
-	if project.AccessMode == projectsvc.AccessModeDirect {
+	if project.AccessMode == projectsvc.AccessModeDirect || !proxyAvailable {
 		access.URL, access.URLLabel = access.DirectURL, access.DirectURLLabel
+	}
+	if !proxyAvailable {
+		access.ModeLabel = "Direct — proxy indisponible"
 	}
 	return access
 }

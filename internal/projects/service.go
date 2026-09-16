@@ -73,6 +73,15 @@ func (s *Service) ProjectURL(slug string) string {
 	return base + "/" + slug
 }
 
+// ProxyHealthy reports whether the reverse proxy is reachable.
+// A nil provider (tests, minimal wiring) counts as healthy: fail open.
+func (s *Service) ProxyHealthy(ctx context.Context) bool {
+	if s.proxy == nil {
+		return true
+	}
+	return s.proxy.IsHealthy(ctx)
+}
+
 // DirectProjectURL returns the project's URL on its assigned main port.
 func (s *Service) DirectProjectURL(port int64) (string, error) {
 	base, err := url.Parse(strings.TrimSpace(s.baseURL))
