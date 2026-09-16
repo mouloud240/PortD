@@ -571,13 +571,13 @@ func (h *ProjectsHandler) projectAccess(ctx context.Context, project db.Project)
 }
 
 func aiPrompt(proxied, direct string) string {
-	return "PortD est un centre de projets interne qui propose deux façons d'ouvrir les applications existantes :\n" +
-		"- Mode proxy : " + proxied + " — une URL partagée propre sous PortD, qui peut exiger un chemin de base du framework.\n" +
-		"- Mode direct : " + direct + " — le serveur de l'application et son port principal, sans préfixe PortD ni modification requise.\n\n" +
-		"Mon application est en cours de préparation pour le mode proxy. Identifie le framework et configure son chemin de base pour que " +
-		"le routage côté client, les ressources à chemin absolu, les redirections, les formulaires, les appels API et les liens générés côté serveur fonctionnent sous l'URL proxy. " +
-		"Ne réécris pas de code sans rapport et ne casse pas le mode direct. Dis-moi exactement quel fichier modifier, explique pourquoi, et fournis le plus petit correctif sûr. " +
-		"Si cette application ne peut pas supporter un préfixe de chemin de façon fiable, dis-le et recommande plutôt le mode direct."
+	return "PortD is an internal project hub with two ways to open existing apps:\n" +
+		"- Proxy mode: " + proxied + " — a clean shared URL under PortD, which may require a framework base path.\n" +
+		"- Direct mode: " + direct + " — the app server and its main port, with no PortD prefix and no change required.\n\n" +
+		"My app is being prepared for proxy mode. Identify the framework and configure its base path so that " +
+		"client-side routing, absolute-path assets, redirects, forms, API calls, and server-generated links all work under the proxy URL. " +
+		"Do not rewrite unrelated code and do not break direct mode. Tell me exactly which file to change, explain why, and give the smallest safe fix. " +
+		"If this app cannot reliably support a path prefix, say so and recommend direct mode instead."
 }
 
 func accessModeLabel(mode string) string {
@@ -594,6 +594,7 @@ func quickstarts(proxied string) []pages.QuickstartItem {
 	}
 	return []pages.QuickstartItem{
 		{Key: "react-router", Name: "React Router", File: "src/main.jsx ou src/main.tsx", Description: "Passez le chemin du projet comme basename du routeur.", Snippet: `<BrowserRouter basename="` + base + `">`},
+		{Key: "tanstack-router", Name: "TanStack Router", File: "src/main.tsx ou src/router.tsx", Description: "Passez le chemin du projet comme basepath du routeur.", Snippet: "createRouter({ routeTree, basepath: '" + base + "' })"},
 		{Key: "vite", Name: "Vite", File: "vite.config.js ou vite.config.ts", Description: "Définissez la base pour résoudre les ressources sous le chemin du projet.", Snippet: "base: '" + base + "/'"},
 		{Key: "next", Name: "Next.js", File: "next.config.js ou next.config.mjs", Description: "Définissez basePath une fois pour les liens et les ressources.", Snippet: "basePath: '" + base + "'"},
 		{Key: "vue-router", Name: "Vue Router", File: "src/router/index.js ou src/router/index.ts", Description: "Passez le chemin du projet au mode historique.", Snippet: "createWebHistory('" + base + "/')"},
