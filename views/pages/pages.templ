@@ -771,10 +771,15 @@ templ projectDetailBody(data ProjectDetailData) {
 							<input id="startup-command" name="startup_command" value={ data.RuntimeFile } placeholder="start.sh ou start.bat" autocomplete="off"/>
 							<button class="button secondary" type="submit">Enregistrer</button>
 						</form>
-						if data.RuntimeState == "failed" {
-							<p class="runtime-error">Le processus s'est arrêté de façon inattendue. Vérifiez le fichier et les journaux avant de réessayer.</p>
-						}
-					</div>
+						<ul class="mt-2 text-xs text-brand-muted list-disc ml-5 space-y-1">
+							<li><strong>Windows :</strong> gardez une commande serveur au premier plan dans le fichier bat pour que PortD puisse l'arrêter.</li>
+							<li>Évitez <code>start ... cmd /k</code>, <code>/min</code> ou <code>pause</code> : le processus réel survit alors à l'arrêt.</li>
+							<li>Pour <code>npm</code>/<code>uvicorn</code> en arrière-plan, utilisez <code>start /b ""</code> dans la même fenêtre ; sinon séparez backend et frontend en deux projets PortD.</li>
+						</ul>
+					if data.RuntimeState == "failed" {
+						<p class="runtime-error">Le processus s'est arrêté de façon inattendue. Vérifiez le fichier et les journaux avant de réessayer.</p>
+					}
+				</div>
 				</div>
 				<dl class="hub-dl four-up">
 					<div>
@@ -807,6 +812,9 @@ templ projectDetailBody(data ProjectDetailData) {
 				<span class="badge neutral">{ data.Access.ModeLabel }</span>
 			</div>
 			<div class="panel-body panel-body-padded">
+				if !data.Access.ProxyAvailable {
+					<div class="runtime-alert mb-4" role="status">Proxy indisponible — Caddy ne répond pas. Les URL affichées utilisent le mode direct en attendant son retour.</div>
+				}
 				<div class="access-options">
 					<div class="access-option" data-active?={ data.Access.Mode == "direct" }>
 						<div class="access-option-head"><strong>Direct</strong><span class="state-pill ready">Sans modification</span></div>
@@ -1141,9 +1149,13 @@ templ projectFormBody(data ProjectFormData) {
 			Mode d'accès
 			<select name="access_mode" class="mt-1.5 block w-full px-3 py-2 text-sm border border-slate-300 rounded-md text-slate-700 font-semibold bg-white focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none cursor-pointer dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
 				<option value="direct" selected?={ data.AccessMode == "" || data.AccessMode == "direct" }>Direct — serveur et port principal</option>
-				<option value="proxied" selected?={ data.AccessMode == "proxied" }>Via proxy — URL de projet partagée</option>
+				<option value="proxied" selected?={ data.AccessMode == "proxied" } disabled?={ !data.ProxyAvailable }>Via proxy — URL de projet partagée</option>
 			</select>
-			<span class="mt-1 block text-xs text-brand-muted">Direct est le choix par défaut, le plus compatible. Le mode proxy peut exiger un chemin de base.</span>
+			if data.ProxyAvailable {
+				<span class="mt-1 block text-xs text-brand-muted">Direct est le choix par défaut, le plus compatible. Le mode proxy peut exiger un chemin de base.</span>
+			} else {
+				<span class="mt-1 block text-xs text-brand-muted" role="status">Proxy indisponible (Caddy ne répond pas) — seul le mode direct peut être enregistré pour l'instant.</span>
+			}
 		</label>
 		if data.IsNew {
 			<label class="block text-sm font-bold text-slate-700 dark:text-slate-300">
