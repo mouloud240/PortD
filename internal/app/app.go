@@ -18,12 +18,14 @@ import (
 	internsvc "github.com/portd/internal/interns"
 	portsvc "github.com/portd/internal/ports"
 	projectsvc "github.com/portd/internal/projects"
+	"github.com/portd/internal/proxy"
 	"github.com/portd/internal/runtime"
 	_ "modernc.org/sqlite"
 )
 
 // App owns PortD's process-scoped resources.
 type App struct {
+	ProxyProvider proxy.Provider
 	database *sql.DB
 	handler  http.Handler
 	server   *http.Server
@@ -67,9 +69,10 @@ func New(cfg config.Config) (*App, error) {
 	}
 
 	queries := db.New(database)
+  caddy:=proxy.NewCaddyProvider("localhost:2019")
 	authService := auth.NewService(queries, cfg.AdminUsername, cfg.AdminPassword)
 	internService := internsvc.NewService(queries)
-	projectService := projectsvc.NewService(database, queries, cfg.BaseURL, cfg.ProjectsDir, runtime.FileScaffolder{})
+	projectService := projectsvc.NewService(database, queries, cfg.BaseURL, cfg.ProjectsDir, runtime.FileScaffolder{},caddy)
 	runtimeManager := runtime.NewManager()
 	activityService := activitysvc.NewService(queries)
 	activityService.Start()
@@ -84,6 +87,7 @@ func New(cfg config.Config) (*App, error) {
 	}
 	healthContext, cancel := context.WithCancel(context.Background())
 	application := &App{
+		ProxyProvider: caddy,
 		database: database,
 		handler:  router,
 		health:   healthPoller,

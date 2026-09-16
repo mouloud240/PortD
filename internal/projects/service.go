@@ -20,6 +20,7 @@ import (
 	"github.com/portd/internal/auth"
 	db "github.com/portd/internal/db/generated"
 	portsvc "github.com/portd/internal/ports"
+	"github.com/portd/internal/proxy"
 	"github.com/portd/internal/runtime"
 )
 
@@ -47,18 +48,19 @@ const defaultProjectsDir = "/var/portd/projects"
 
 type Service struct {
 	db          *sql.DB
+	proxy       proxy.Provider
 	queries     *db.Queries
 	baseURL     string
 	projectsDir string
 	scaffold    runtime.Scaffolder
 }
 
-func NewService(database *sql.DB, queries *db.Queries, baseURL, projectsDir string, scaffold runtime.Scaffolder) *Service {
+func NewService(database *sql.DB, queries *db.Queries, baseURL, projectsDir string, scaffold runtime.Scaffolder, proxy proxy.Provider) *Service {
 	projectsDir = strings.TrimRight(strings.TrimSpace(projectsDir), "/")
 	if projectsDir == "" {
 		projectsDir = defaultProjectsDir
 	}
-	return &Service{db: database, queries: queries, baseURL: strings.TrimSpace(baseURL), projectsDir: projectsDir, scaffold: scaffold}
+	return &Service{db: database, queries: queries, baseURL: strings.TrimSpace(baseURL), projectsDir: projectsDir, scaffold: scaffold, proxy: proxy}
 }
 
 // ProjectURL builds the public project URL from the configured base URL and slug.
@@ -389,6 +391,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 		shouldRun = 1
 	}
 	id := uuid.NewString()
+	// One uuid identifies the Caddy route family (main + css/js/assets
+	// Referer-scoped routes derive their @ids from it, so only this id
+	// is stored).
+	providerRouteID := ""
+	if accessMode == AccessModeProxied {
+		providerRouteID = uuid.NewString()
+	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -421,8 +430,35 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 	if err := replaceInterns(ctx, qtx, project.ID, internIDs, now); err != nil {
 		return ProjectWithInterns{}, err
 	}
-	if _, err := portsvc.Allocate(ctx, qtx, project.ID, in.PortCount); err != nil {
+
+	allocatedPorts, err := portsvc.Allocate(ctx, qtx, project.ID, in.PortCount)
+	if err != nil {
 		return ProjectWithInterns{}, err
+	}
+	// Pending row first: if Caddy is down the project still exists and
+	// the route can be retried from the stored provider id.
+	var routeRowID string
+	if providerRouteID != "" {
+		if mainPort := mainPortNumber(allocatedPorts); mainPort != 0 {
+			row, err := qtx.CreateRoute(ctx, db.CreateRouteParams{
+				ID:              uuid.NewString(),
+				ProjectID:       project.ID,
+				ProviderRouteID: providerRouteID,
+				PublicPath:      "/" + slug,
+				UpstreamHost:    "localhost",
+				UpstreamPort:    mainPort,
+				Enabled:         1,
+				SyncStatus:      "pending",
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			})
+			if err != nil {
+				return ProjectWithInterns{}, err
+			}
+			routeRowID = row.ID
+		} else {
+			slog.Error("proxy route skipped: no main port allocated", "slug", slug)
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return ProjectWithInterns{}, err
@@ -435,7 +471,60 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ProjectWithIntern
 		s.writeReadme(ctx, project, accessMode)
 	}
 	slog.Info("project created", "slug", slug, "dir", directory, "interns", len(internIDs), "ports", in.PortCount, "access", accessMode)
+
+	if routeRowID != "" {
+		s.syncRoute(ctx, project.ID, routeRowID)
+	}
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
+}
+
+// syncRoute pushes a pending route row to the proxy after commit and
+// records the outcome. A failure never fails creation: the row stays
+// "failed" with the error for retry/inspection.
+func (s *Service) syncRoute(ctx context.Context, projectID, routeRowID string) {
+	if s.proxy == nil {
+		return
+	}
+	route, err := s.queries.GetRoute(ctx, routeRowID)
+	if err != nil {
+		slog.Error("proxy route lookup failed", "route_id", routeRowID, "error", err)
+		return
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if err := s.proxy.Apply(ctx, proxy.Route{
+		ProviderID:   route.ProviderRouteID,
+		PublicPath:   route.PublicPath,
+		UpstreamHost: route.UpstreamHost,
+		UpstreamPort: route.UpstreamPort,
+		Enabled:      route.Enabled == 1,
+	}); err != nil {
+		slog.Error("proxy route apply failed", "slug", route.PublicPath, "error", err)
+		if markErr := s.queries.MarkRouteFailed(ctx, db.MarkRouteFailedParams{
+			LastError: sql.NullString{String: err.Error(), Valid: true},
+			UpdatedAt: now,
+			ID:        routeRowID,
+		}); markErr != nil {
+			slog.Error("proxy route mark-failed failed", "route_id", routeRowID, "error", markErr)
+		}
+		return
+	}
+	if err := s.queries.MarkRouteSynced(ctx, db.MarkRouteSyncedParams{
+		SyncedAt:  sql.NullString{String: now, Valid: true},
+		UpdatedAt: now,
+		ID:        routeRowID,
+	}); err != nil {
+		slog.Error("proxy route mark-synced failed", "route_id", routeRowID, "error", err)
+	}
+}
+
+// mainPortNumber returns the allocated main port, or 0 when missing.
+func mainPortNumber(ports []db.Port) int64 {
+	for _, port := range ports {
+		if port.Role == "main" {
+			return port.Port
+		}
+	}
+	return 0
 }
 
 // writeReadme regenerates the project README with the committed details.
@@ -700,7 +789,39 @@ func (s *Service) Archive(ctx context.Context, slug string) (ProjectWithInterns,
 		return ProjectWithInterns{}, err
 	}
 	slog.Info("project archived", "slug", slug)
+	s.removeRoute(ctx, project.ID)
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
+}
+
+// removeRoute deletes the project's Caddy routes and its route row.
+// Best-effort: a proxy failure keeps the row as failed (the provider id
+// is preserved for retry) and never fails the archive itself.
+func (s *Service) removeRoute(ctx context.Context, projectID string) {
+	if s.proxy == nil {
+		return
+	}
+	route, err := s.queries.GetRouteByProject(ctx, projectID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return
+	}
+	if err != nil {
+		slog.Error("proxy route lookup failed", "project_id", projectID, "error", err)
+		return
+	}
+	if err := s.proxy.Remove(ctx, route.ProviderRouteID); err != nil {
+		slog.Error("proxy route remove failed", "provider_id", route.ProviderRouteID, "error", err)
+		if markErr := s.queries.MarkRouteFailed(ctx, db.MarkRouteFailedParams{
+			LastError: sql.NullString{String: err.Error(), Valid: true},
+			UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+			ID:        route.ID,
+		}); markErr != nil {
+			slog.Error("proxy route mark-failed failed", "route_id", route.ID, "error", markErr)
+		}
+		return
+	}
+	if err := s.queries.DeleteRouteByProject(ctx, projectID); err != nil {
+		slog.Error("proxy route row delete failed", "project_id", projectID, "error", err)
+	}
 }
 
 func (s *Service) projectIDBySlug(ctx context.Context, slug string) (string, error) {

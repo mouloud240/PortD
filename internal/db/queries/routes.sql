@@ -9,6 +9,9 @@ SELECT * FROM routes WHERE id = ?;
 -- name: GetRouteByProject :one
 SELECT * FROM routes WHERE project_id = ?;
 
+-- name: DeleteRouteByProject :exec
+DELETE FROM routes WHERE project_id = ?;
+
 -- name: ListRoutesBySyncStatus :many
 SELECT * FROM routes WHERE sync_status = ? ORDER BY updated_at, id;
 

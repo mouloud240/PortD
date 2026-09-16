@@ -64,6 +64,15 @@ func (q *Queries) CreateRoute(ctx context.Context, arg CreateRouteParams) (Route
 	return i, err
 }
 
+const deleteRouteByProject = `-- name: DeleteRouteByProject :exec
+DELETE FROM routes WHERE project_id = ?
+`
+
+func (q *Queries) DeleteRouteByProject(ctx context.Context, projectID string) error {
+	_, err := q.db.ExecContext(ctx, deleteRouteByProject, projectID)
+	return err
+}
+
 const getRoute = `-- name: GetRoute :one
 SELECT id, project_id, provider_route_id, public_path, upstream_host, upstream_port, enabled, sync_status, last_error, synced_at, created_at, updated_at FROM routes WHERE id = ?
 `

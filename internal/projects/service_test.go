@@ -12,6 +12,7 @@ import (
 	"time"
 
 	db "github.com/portd/internal/db/generated"
+	"github.com/portd/internal/proxy"
 	"github.com/portd/internal/runtime"
 	_ "modernc.org/sqlite"
 )
@@ -277,8 +278,91 @@ func TestGetBySlugNotFound(t *testing.T) {
 	}
 }
 
+func TestProxiedCreateSyncsRouteAndArchiveRemoves(t *testing.T) {
+	t.Parallel()
+	service, queries, fake := testServiceWithFakeProxy(t)
+	createIntern(t, queries, "i1", "Alice")
+	ctx := context.Background()
+
+	created, err := service.Create(ctx, CreateInput{
+		Name: "Proxy App", InternIDs: []string{"i1"}, PortCount: 1, AccessMode: AccessModeProxied,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if len(fake.Applied) != 1 {
+		t.Fatalf("applied = %d, want 1", len(fake.Applied))
+	}
+	applied := fake.Applied[0]
+	if applied.PublicPath != "/proxy-app" || applied.UpstreamHost != "localhost" || applied.UpstreamPort == 0 {
+		t.Fatalf("applied = %+v, want /proxy-app on localhost", applied)
+	}
+	row, err := queries.GetRouteByProject(ctx, created.Project.ID)
+	if err != nil {
+		t.Fatalf("route row: %v", err)
+	}
+	if row.ProviderRouteID != applied.ProviderID || applied.ProviderID == "" {
+		t.Fatalf("stored provider id = %q, posted = %q (must be the same uuid)", row.ProviderRouteID, applied.ProviderID)
+	}
+	if row.SyncStatus != "synced" {
+		t.Fatalf("sync status = %q, want synced", row.SyncStatus)
+	}
+
+	if _, err := service.Archive(ctx, "proxy-app"); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+	if len(fake.Removed) != 1 || fake.Removed[0] != applied.ProviderID {
+		t.Fatalf("removed = %+v, want [%s]", fake.Removed, applied.ProviderID)
+	}
+	if _, err := queries.GetRouteByProject(ctx, created.Project.ID); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("route row still exists: %v", err)
+	}
+}
+
+func TestProxiedCreateFailedApplyKeepsProject(t *testing.T) {
+	t.Parallel()
+	service, queries, fake := testServiceWithFakeProxy(t)
+	fake.Err = errors.New("caddy down")
+	createIntern(t, queries, "i1", "Alice")
+	ctx := context.Background()
+
+	created, err := service.Create(ctx, CreateInput{
+		Name: "Flaky App", InternIDs: []string{"i1"}, PortCount: 1, AccessMode: AccessModeProxied,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	row, err := queries.GetRouteByProject(ctx, created.Project.ID)
+	if err != nil {
+		t.Fatalf("route row: %v", err)
+	}
+	if row.SyncStatus != "failed" || !row.LastError.Valid {
+		t.Fatalf("route = %+v, want failed with last_error", row)
+	}
+}
+
+func TestDirectCreateSkipsProxy(t *testing.T) {
+	t.Parallel()
+	service, queries, fake := testServiceWithFakeProxy(t)
+	createIntern(t, queries, "i1", "Alice")
+	ctx := context.Background()
+
+	created, err := service.Create(ctx, CreateInput{
+		Name: "Direct App", InternIDs: []string{"i1"}, PortCount: 1,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if len(fake.Applied) != 0 {
+		t.Fatalf("applied = %d, want 0 for direct mode", len(fake.Applied))
+	}
+	if _, err := queries.GetRouteByProject(ctx, created.Project.ID); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("route row exists for direct project: %v", err)
+	}
+}
+
 func TestDirectProjectURL(t *testing.T) {
-	svc := NewService(nil, nil, "http://10.243.1.20:8080/portd", "", nil)
+	svc := NewService(nil, nil, "http://10.243.1.20:8080/portd", "", nil, nil)
 	for _, test := range []struct {
 		port int64
 		want string
@@ -380,6 +464,14 @@ func testService(t *testing.T) (*Service, *db.Queries) {
 	return testServiceIn(t, t.TempDir())
 }
 
+func testServiceWithFakeProxy(t *testing.T) (*Service, *db.Queries, *proxy.FakeProvider) {
+	t.Helper()
+	service, queries := testService(t)
+	fake := &proxy.FakeProvider{}
+	service.proxy = fake
+	return service, queries, fake
+}
+
 func testServiceIn(t *testing.T, projectsDir string) (*Service, *db.Queries) {
 	t.Helper()
 	database, err := sql.Open("sqlite", ":memory:")
@@ -401,7 +493,7 @@ func testServiceIn(t *testing.T, projectsDir string) (*Service, *db.Queries) {
 		}
 	}
 	queries := db.New(database)
-	return NewService(database, queries, "https://portd.example.test", projectsDir, runtime.FileScaffolder{}), queries
+	return NewService(database, queries, "https://portd.example.test", projectsDir, runtime.FileScaffolder{}, nil), queries
 }
 
 func createIntern(t *testing.T, queries *db.Queries, id, name string) {
