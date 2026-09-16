@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,12 +18,25 @@ import (
 // they own "/"). Each gets a Referer-scoped route per project.
 var assetPrefixes = []string{"css", "js", "assets"}
 
+// healthTTL is how long an IsHealthy result is cached: Caddy is either
+// installed or not, so probing on every Apply would only add latency.
+const healthTTL = 30 * time.Second
+
+// probeTimeout bounds a single health probe so pages never wait on Caddy.
+const probeTimeout = 2 * time.Second
+
 // CaddyProvider talks to the Caddy admin API with raw calls: the
 // go.destructure.dev/caddy lib has no header-matcher or rewrite types,
 // and its DeleteConfig cannot hit DELETE /id/<id>.
 type CaddyProvider struct {
 	baseURL string
 	http    *http.Client
+
+	mu        sync.Mutex
+	isHealthy bool
+	checkedAt time.Time
+	probed    bool
+	ttl       time.Duration
 }
 
 func NewCaddyProvider(address string) *CaddyProvider {
@@ -36,7 +50,41 @@ func NewCaddyProvider(address string) *CaddyProvider {
 	return &CaddyProvider{
 		baseURL: strings.TrimRight(address, "/"),
 		http:    &http.Client{Timeout: 10 * time.Second},
+		ttl:     healthTTL,
 	}
+}
+
+// IsHealthy probes the Caddy admin API (GET /config/) and caches the
+// result for 30s. Any HTTP response means Caddy is alive; only network
+// errors, timeouts, or 5xx count as down (Caddy not installed/running).
+// ponytail: probed under lock; at this scale one blocked caller per TTL
+// window beats a singleflight dependency.
+func (c *CaddyProvider) IsHealthy(ctx context.Context) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.probed && time.Since(c.checkedAt) < c.ttl {
+		return c.isHealthy
+	}
+	c.isHealthy = c.probe(ctx)
+	c.checkedAt = time.Now()
+	c.probed = true
+	return c.isHealthy
+}
+
+func (c *CaddyProvider) probe(ctx context.Context) bool {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/config/", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
+	return resp.StatusCode < 500
 }
 
 // adminRoute mirrors Caddy's native route JSON for the shapes we post.
@@ -82,6 +130,10 @@ func (c *CaddyProvider) Apply(ctx context.Context, route Route) error {
 	if slug == "" {
 		return errors.New("proxy: missing public path")
 	}
+	if !c.IsHealthy(ctx) {
+		slog.Warn("proxy apply skipped: caddy unavailable", "provider_id", route.ProviderID)
+		return nil
+	}
 
 	routes := []adminRoute{{
 		ID:    route.ProviderID,
@@ -122,6 +174,10 @@ func (c *CaddyProvider) Apply(ctx context.Context, route Route) error {
 func (c *CaddyProvider) Remove(ctx context.Context, providerID string) error {
 	if providerID == "" {
 		return errors.New("proxy: missing provider route id")
+	}
+	if !c.IsHealthy(ctx) {
+		slog.Warn("proxy remove skipped: caddy unavailable", "provider_id", providerID)
+		return nil
 	}
 	ids := []string{providerID}
 	for _, prefix := range assetPrefixes {

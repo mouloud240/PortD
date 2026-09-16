@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type recordedRequest struct {
@@ -38,17 +39,21 @@ func TestApplyPostsMainPlusRefererAssetRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if len(*rec) != 4 {
-		t.Fatalf("requests = %d, want 4 (main + css/js/assets)", len(*rec))
+	if len(*rec) != 5 {
+		t.Fatalf("requests = %d, want 5 (probe + main + css/js/assets)", len(*rec))
 	}
-	for _, r := range *rec {
+	if (*rec)[0].method != http.MethodGet || (*rec)[0].path != "/config/" {
+		t.Fatalf("request 0 = %s %s, want GET /config/", (*rec)[0].method, (*rec)[0].path)
+	}
+	posts := (*rec)[1:]
+	for _, r := range posts {
 		if r.method != http.MethodPost || r.path != "/config/apps/http/servers/srv0/routes" {
 			t.Fatalf("request = %s %s, want POST /config/apps/http/servers/srv0/routes", r.method, r.path)
 		}
 	}
 
 	var main adminRoute
-	if err := json.Unmarshal((*rec)[0].body, &main); err != nil {
+	if err := json.Unmarshal(posts[0].body, &main); err != nil {
 		t.Fatal(err)
 	}
 	if main.ID != "uuid-1" || len(main.Match) != 1 || len(main.Match[0].Path) != 2 ||
@@ -58,7 +63,7 @@ func TestApplyPostsMainPlusRefererAssetRoutes(t *testing.T) {
 
 	for i, prefix := range assetPrefixes {
 		var asset adminRoute
-		if err := json.Unmarshal((*rec)[i+1].body, &asset); err != nil {
+		if err := json.Unmarshal(posts[i+1].body, &asset); err != nil {
 			t.Fatal(err)
 		}
 		if asset.ID != "uuid-1-"+prefix {
@@ -111,13 +116,17 @@ func TestRemoveDeletesRouteFamilyByID(t *testing.T) {
 	if err := NewCaddyProvider(server.URL).Remove(context.Background(), "uuid-1"); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	want := []string{"/id/uuid-1", "/id/uuid-1-css", "/id/uuid-1-js", "/id/uuid-1-assets"}
+	// First request is the GET /config/ health probe, then 4 DELETEs.
+	want := []string{"/config/", "/id/uuid-1", "/id/uuid-1-css", "/id/uuid-1-js", "/id/uuid-1-assets"}
 	if len(*rec) != len(want) {
 		t.Fatalf("requests = %d, want %d", len(*rec), len(want))
 	}
-	for i, path := range want {
-		if (*rec)[i].method != http.MethodDelete || (*rec)[i].path != path {
-			t.Fatalf("request %d = %s %s, want DELETE %s", i, (*rec)[i].method, (*rec)[i].path, path)
+	if (*rec)[0].method != http.MethodGet {
+		t.Fatalf("request 0 = %s %s, want GET /config/", (*rec)[0].method, (*rec)[0].path)
+	}
+	for i, path := range want[1:] {
+		if (*rec)[i+1].method != http.MethodDelete || (*rec)[i+1].path != path {
+			t.Fatalf("request %d = %s %s, want DELETE %s", i, (*rec)[i+1].method, (*rec)[i+1].path, path)
 		}
 	}
 }
@@ -149,8 +158,79 @@ func TestPublicPathNormalized(t *testing.T) {
 	if err := NewCaddyProvider(server.URL).Apply(context.Background(), Route{ProviderID: "u", PublicPath: "/myapp/", UpstreamPort: 3000}); err != nil {
 		t.Fatal(err)
 	}
-	body := string((*rec)[0].body)
+	body := string((*rec)[1].body)
 	if !strings.Contains(body, `"/myapp"`) || !strings.Contains(body, `"/myapp/*"`) {
 		t.Fatalf("main match not normalized: %s", body)
+	}
+}
+
+func TestIsHealthyCachesForTTL(t *testing.T) {
+	t.Parallel()
+	var rec *[]recordedRequest
+	server := testServer(t, http.StatusOK, &rec)
+	defer server.Close()
+
+	provider := NewCaddyProvider(server.URL)
+	if !provider.IsHealthy(context.Background()) {
+		t.Fatal("IsHealthy = false, want true")
+	}
+	if !provider.IsHealthy(context.Background()) {
+		t.Fatal("IsHealthy = false, want true")
+	}
+	if len(*rec) != 1 {
+		t.Fatalf("probe requests = %d, want 1 (second call cached)", len(*rec))
+	}
+}
+
+func TestIsHealthyReprobesAfterTTL(t *testing.T) {
+	t.Parallel()
+	var rec *[]recordedRequest
+	server := testServer(t, http.StatusOK, &rec)
+	defer server.Close()
+
+	provider := NewCaddyProvider(server.URL)
+	provider.ttl = time.Nanosecond
+	if !provider.IsHealthy(context.Background()) {
+		t.Fatal("IsHealthy = false, want true")
+	}
+	if !provider.IsHealthy(context.Background()) {
+		t.Fatal("IsHealthy = false, want true")
+	}
+	if len(*rec) != 2 {
+		t.Fatalf("probe requests = %d, want 2 (TTL expired)", len(*rec))
+	}
+}
+
+func TestApplyAndRemoveSkipWhenCaddyDown(t *testing.T) {
+	t.Parallel()
+	var rec *[]recordedRequest
+	server := testServer(t, http.StatusOK, &rec)
+	defer server.Close()
+
+	// Unreachable admin API: connection refused, no HTTP response.
+	down := NewCaddyProvider("http://127.0.0.1:1")
+	if down.IsHealthy(context.Background()) {
+		t.Fatal("IsHealthy = true, want false")
+	}
+	if err := down.Apply(context.Background(), Route{ProviderID: "u", PublicPath: "/x", UpstreamPort: 3000}); err != nil {
+		t.Fatalf("apply while down = %v, want nil (skipped)", err)
+	}
+	if err := down.Remove(context.Background(), "u"); err != nil {
+		t.Fatalf("remove while down = %v, want nil (skipped)", err)
+	}
+
+	// Seeded-unhealthy provider against a live server: still zero route calls.
+	provider := NewCaddyProvider(server.URL)
+	provider.mu.Lock()
+	provider.isHealthy, provider.checkedAt, provider.probed = false, time.Now(), true
+	provider.mu.Unlock()
+	if err := provider.Apply(context.Background(), Route{ProviderID: "u", PublicPath: "/x", UpstreamPort: 3000}); err != nil {
+		t.Fatalf("apply while unhealthy = %v, want nil (skipped)", err)
+	}
+	if err := provider.Remove(context.Background(), "u"); err != nil {
+		t.Fatalf("remove while unhealthy = %v, want nil (skipped)", err)
+	}
+	if len(*rec) != 0 {
+		t.Fatalf("requests = %d, want 0 (all skipped)", len(*rec))
 	}
 }

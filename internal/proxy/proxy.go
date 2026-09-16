@@ -19,14 +19,20 @@ type Route struct {
 type Provider interface {
 	Apply(context.Context, Route) error
 	Remove(context.Context, string) error
+	IsHealthy(context.Context) bool
 }
 
 // FakeProvider records route operations for unit tests.
+// Zero value is healthy (fail-open, like a nil provider); set Unhealthy
+// for the Caddy-down path.
 type FakeProvider struct {
-	Applied []Route
-	Removed []string
-	Err     error
+	Applied   []Route
+	Removed   []string
+	Err       error
+	Unhealthy bool
 }
+
+func (f *FakeProvider) IsHealthy(context.Context) bool { return !f.Unhealthy }
 
 func (f *FakeProvider) Apply(_ context.Context, route Route) error {
 	if f.Err != nil {
@@ -70,4 +76,11 @@ func (l LoggingProvider) Remove(ctx context.Context, providerID string) error {
 		return err
 	}
 	return nil
+}
+
+func (l LoggingProvider) IsHealthy(ctx context.Context) bool {
+	if l.Next == nil {
+		return true
+	}
+	return l.Next.IsHealthy(ctx)
 }
