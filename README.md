@@ -64,6 +64,8 @@ agent_docs/       — system overview diagram and PRD
 
 ## Architecture
 
+![PortD architecture](docs/Portd_architecure.png)
+
 The source architecture is documented in [agent_docs/System_overview.svg](agent_docs/System_overview.svg). Treat it as the behavioural reference when implementing or changing the product.
 
 ## Development
