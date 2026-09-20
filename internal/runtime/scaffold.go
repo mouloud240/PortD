@@ -106,6 +106,10 @@ func projectReadme(scaffold Scaffold) string {
 	out.WriteString("- `start.bat` — Windows entry point, executed via `cmd /c`.\n")
 	out.WriteString("- Keep both files present; PortD picks the one for its platform. ")
 	out.WriteString("To run a different file, change the execution file under Runtime on the project detail page.\n")
+	out.WriteString("\n### Windows tips\n\n")
+	out.WriteString("- Keep one blocking server command at the end of the bat file so PortD can track and stop it.\n")
+	out.WriteString("- Avoid `start ... cmd /k`, `/min` or `pause`; those keep processes alive after Stop.\n")
+	out.WriteString("- To run a background helper, use `start /b \"\"` inside the same console, or split backend/frontend into two PortD projects.\n")
 	out.WriteString("\n## Ports\n\n")
 	if len(scaffold.Ports) == 0 {
 		out.WriteString("No ports assigned yet.\n")

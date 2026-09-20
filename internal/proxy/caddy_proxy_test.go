@@ -39,8 +39,8 @@ func TestApplyPostsMainPlusRefererAssetRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if len(*rec) != 5 {
-		t.Fatalf("requests = %d, want 5 (probe + main + css/js/assets)", len(*rec))
+	if len(*rec) != 6 {
+		t.Fatalf("requests = %d, want 6 (probe + main + css/js/assets + host)", len(*rec))
 	}
 	if (*rec)[0].method != http.MethodGet || (*rec)[0].path != "/config/" {
 		t.Fatalf("request 0 = %s %s, want GET /config/", (*rec)[0].method, (*rec)[0].path)
@@ -56,9 +56,14 @@ func TestApplyPostsMainPlusRefererAssetRoutes(t *testing.T) {
 	if err := json.Unmarshal(posts[0].body, &main); err != nil {
 		t.Fatal(err)
 	}
-	if main.ID != "uuid-1" || len(main.Match) != 1 || len(main.Match[0].Path) != 2 ||
+	if main.ID != "uuid-1" || len(main.Match) != 1 || len(main.Match[0].Path) != 2+len(viteDevPaths) ||
 		main.Match[0].Path[0] != "/myapp" || main.Match[0].Path[1] != "/myapp/*" {
 		t.Fatalf("main route = %+v", main)
+	}
+	for i, p := range viteDevPaths {
+		if main.Match[0].Path[i+2] != p {
+			t.Fatalf("main route vite path %d = %q, want %q", i, main.Match[0].Path[i+2], p)
+		}
 	}
 
 	for i, prefix := range assetPrefixes {
@@ -82,6 +87,25 @@ func TestApplyPostsMainPlusRefererAssetRoutes(t *testing.T) {
 		if asset.Handle[1].Handler != "reverse_proxy" || asset.Handle[1].Upstreams[0].Dial != "localhost:7331" {
 			t.Fatalf("asset handle[1] = %+v", asset.Handle)
 		}
+	}
+
+	var host adminRoute
+	if err := json.Unmarshal(posts[len(posts)-1].body, &host); err != nil {
+		t.Fatal(err)
+	}
+	if host.ID != "uuid-1-host" {
+		t.Fatalf("host id = %q, want %q", host.ID, "uuid-1-host")
+	}
+	if len(host.Match) != 1 || len(host.Match[0].Host) != 4 ||
+		host.Match[0].Host[0] != "myapp.*" || host.Match[0].Host[1] != "myapp.*.*" ||
+		host.Match[0].Host[2] != "myapp.*.*.*" || host.Match[0].Host[3] != "myapp.*.*.*.*" {
+		t.Fatalf("host match = %+v, want [myapp.* .. myapp.*.*.*.*]", host.Match)
+	}
+	if len(host.Match[0].Path) != 0 {
+		t.Fatalf("host path = %+v, want none (served at root)", host.Match[0].Path)
+	}
+	if len(host.Handle) != 1 || host.Handle[0].Handler != "reverse_proxy" || host.Handle[0].Upstreams[0].Dial != "localhost:7331" {
+		t.Fatalf("host handle = %+v", host.Handle)
 	}
 }
 
@@ -116,8 +140,8 @@ func TestRemoveDeletesRouteFamilyByID(t *testing.T) {
 	if err := NewCaddyProvider(server.URL).Remove(context.Background(), "uuid-1"); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	// First request is the GET /config/ health probe, then 4 DELETEs.
-	want := []string{"/config/", "/id/uuid-1", "/id/uuid-1-css", "/id/uuid-1-js", "/id/uuid-1-assets"}
+	// First request is the GET /config/ health probe, then 5 DELETEs.
+	want := []string{"/config/", "/id/uuid-1", "/id/uuid-1-css", "/id/uuid-1-js", "/id/uuid-1-assets", "/id/uuid-1-host"}
 	if len(*rec) != len(want) {
 		t.Fatalf("requests = %d, want %d", len(*rec), len(want))
 	}

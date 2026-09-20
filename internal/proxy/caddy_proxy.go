@@ -18,16 +18,18 @@ import (
 // they own "/"). Each gets a Referer-scoped route per project.
 var assetPrefixes = []string{"css", "js", "assets"}
 
-// healthTTL is how long an IsHealthy result is cached: Caddy is either
-// installed or not, so probing on every Apply would only add latency.
+var viteDevPaths = []string{
+	"/@vite/*",
+	"/@react-refresh",
+	"/@id/*",
+	"/@fs/*",
+	"/src/*",
+	"/node_modules/*", // covers /node_modules/.vite/* and /node_modules/vite/dist/client/env.mjs
+}
 const healthTTL = 30 * time.Second
 
-// probeTimeout bounds a single health probe so pages never wait on Caddy.
 const probeTimeout = 2 * time.Second
 
-// CaddyProvider talks to the Caddy admin API with raw calls: the
-// go.destructure.dev/caddy lib has no header-matcher or rewrite types,
-// and its DeleteConfig cannot hit DELETE /id/<id>.
 type CaddyProvider struct {
 	baseURL string
 	http    *http.Client
@@ -54,11 +56,6 @@ func NewCaddyProvider(address string) *CaddyProvider {
 	}
 }
 
-// IsHealthy probes the Caddy admin API (GET /config/) and caches the
-// result for 30s. Any HTTP response means Caddy is alive; only network
-// errors, timeouts, or 5xx count as down (Caddy not installed/running).
-// ponytail: probed under lock; at this scale one blocked caller per TTL
-// window beats a singleflight dependency.
 func (c *CaddyProvider) IsHealthy(ctx context.Context) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -96,6 +93,7 @@ type adminRoute struct {
 
 type adminMatch struct {
 	Path   []string            `json:"path,omitempty"`
+	Host   []string            `json:"host,omitempty"`
 	Header map[string][]string `json:"header,omitempty"`
 }
 
@@ -116,8 +114,10 @@ func proxyOp(host string, port int64) adminOp {
 	return adminOp{Handler: "reverse_proxy", Upstreams: []adminUpstream{{Dial: fmt.Sprintf("%s:%d", host, port)}}}
 }
 
-// Apply posts 4 routes: main (/slug, /slug/*) plus one Referer-scoped
-// asset route per prefix (/css|/js|/assets/* AND Referer ~ /slug).
+// Apply posts 5 routes: main (/slug, /slug/*) plus one Referer-scoped
+// asset route per prefix (/css|/js|/assets/* AND Referer ~ /slug),
+// plus a host route (Host slug.*) serving the app at domain root as a
+// fallback that needs no base path.
 func (c *CaddyProvider) Apply(ctx context.Context, route Route) error {
 	if route.ProviderID == "" {
 		return errors.New("proxy: missing provider route id")
@@ -135,9 +135,11 @@ func (c *CaddyProvider) Apply(ctx context.Context, route Route) error {
 		return nil
 	}
 
-	routes := []adminRoute{{
-		ID:    route.ProviderID,
-		Match: []adminMatch{{Path: []string{base, base + "/*"}}},
+		routes := []adminRoute{{
+		ID: route.ProviderID,
+		Match: []adminMatch{{
+			Path: append([]string{base, base + "/*"}, viteDevPaths...),
+		}},
 		Handle: []adminOp{
 			proxyOp(route.UpstreamHost, route.UpstreamPort),
 		},
@@ -157,6 +159,15 @@ func (c *CaddyProvider) Apply(ctx context.Context, route Route) error {
 			},
 		})
 	}
+		routes = append(routes, adminRoute{
+		ID: route.ProviderID + "-host",
+		Match: []adminMatch{{
+			Host: []string{slug + ".*", slug + ".*.*", slug + ".*.*.*", slug + ".*.*.*.*",slug +".*.*.*.*.nip.io"},
+		}},
+		Handle: []adminOp{
+			proxyOp(route.UpstreamHost, route.UpstreamPort),
+		},
+	})
 
 	for _, r := range routes {
 		if err := c.postRoute(ctx, r); err != nil {
@@ -167,10 +178,8 @@ func (c *CaddyProvider) Apply(ctx context.Context, route Route) error {
 	return nil
 }
 
-// Remove deletes the main route plus its asset routes by @id.
+// Remove deletes the main route plus its asset and host routes by @id.
 // Missing IDs (404) are already-gone, not errors.
-// ponytail: best-effort loop; a partial failure returns joined errors and
-// the caller decides (Archive keeps the DB row as failed for retry).
 func (c *CaddyProvider) Remove(ctx context.Context, providerID string) error {
 	if providerID == "" {
 		return errors.New("proxy: missing provider route id")
@@ -183,6 +192,7 @@ func (c *CaddyProvider) Remove(ctx context.Context, providerID string) error {
 	for _, prefix := range assetPrefixes {
 		ids = append(ids, providerID+"-"+prefix)
 	}
+	ids = append(ids, providerID+"-host")
 	var errs []error
 	for _, id := range ids {
 		if err := c.deleteByID(ctx, id); err != nil {

@@ -1,0 +1,21 @@
+{
+	debug
+	admin localhost:2019
+	# Everything here is plain HTTP (BASE_URL is http://). Project host
+	# routes (<slug>.*) must never trigger cert issuance or http->https
+	# redirects, so automatic HTTPS stays off.
+	auto_https off
+}
+
+# Sentinel: keeps srv0.routes a non-null list so the app can POST its
+# first project route (POST to a null list fails with 500 and the
+# project stays unsynced). Matches one exact internal path only --
+# never a catch-all -- so appended project routes always evaluate.
+# Slugs cannot contain underscores, so no project route can collide.
+http:// {
+	handle /__portd/healthz {
+		respond "ok" 200
+	}
+}
+
+import /etc/caddy/conf.d/*

@@ -764,12 +764,55 @@ func (s *Service) Update(ctx context.Context, slug string, in UpdateInput) (Proj
 	if err := tx.Commit(); err != nil {
 		return ProjectWithInterns{}, err
 	}
+	s.reconcileRoute(ctx, project.ID, project.Slug, existing.AccessMode, accessMode)
 	interns, err := s.queries.ListProjectInterns(ctx, project.ID)
 	if err != nil {
 		return ProjectWithInterns{}, err
 	}
 	slog.Info("project updated", "slug", slug, "lifecycle", lifecycle, "access", accessMode)
 	return ProjectWithInterns{Project: project, Interns: interns}, nil
+}
+
+// reconcileRoute provisions or removes the proxy route when the access mode
+// changes. Direct->proxied creates a pending route row and pushes it;
+// proxied->direct removes the Caddy route and its row. Failures never fail
+// the update itself: they are recorded on the route row for retry/inspection.
+func (s *Service) reconcileRoute(ctx context.Context, projectID, slug, oldMode, newMode string) {
+	if newMode == AccessModeProxied {
+		if _, err := s.queries.GetRouteByProject(ctx, projectID); err == nil {
+			return
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			slog.Error("proxy route lookup failed", "project_id", projectID, "error", err)
+			return
+		}
+		main, err := s.queries.GetProjectMainPort(ctx, projectID)
+		if err != nil {
+			slog.Error("proxy route skipped: no main port", "slug", slug, "error", err)
+			return
+		}
+		now := time.Now().UTC().Format(time.RFC3339Nano)
+		row, err := s.queries.CreateRoute(ctx, db.CreateRouteParams{
+			ID:              uuid.NewString(),
+			ProjectID:       projectID,
+			ProviderRouteID: uuid.NewString(),
+			PublicPath:      "/" + slug,
+			UpstreamHost:    "localhost",
+			UpstreamPort:    main.Port,
+			Enabled:         1,
+			SyncStatus:      "pending",
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		})
+		if err != nil {
+			slog.Error("proxy route create failed", "slug", slug, "error", err)
+			return
+		}
+		s.syncRoute(ctx, projectID, row.ID)
+		return
+	}
+	if oldMode == AccessModeProxied {
+		s.removeRoute(ctx, projectID)
+	}
 }
 
 func (s *Service) Archive(ctx context.Context, slug string) (ProjectWithInterns, error) {

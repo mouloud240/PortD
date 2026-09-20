@@ -361,6 +361,63 @@ func TestDirectCreateSkipsProxy(t *testing.T) {
 	}
 }
 
+func TestUpdateDirectToProxiedProvisionsRoute(t *testing.T) {
+	t.Parallel()
+	service, queries, fake := testServiceWithFakeProxy(t)
+	createIntern(t, queries, "i1", "Alice")
+	ctx := context.Background()
+
+	created, err := service.Create(ctx, CreateInput{
+		Name: "Switch App", InternIDs: []string{"i1"}, PortCount: 1,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if len(fake.Applied) != 0 {
+		t.Fatalf("applied = %d, want 0 for direct mode", len(fake.Applied))
+	}
+
+	updated, err := service.Update(ctx, "switch-app", UpdateInput{
+		Name: "Switch App", InternIDs: []string{"i1"}, AccessMode: AccessModeProxied,
+	})
+	if err != nil || updated.Project.AccessMode != AccessModeProxied {
+		t.Fatalf("update = %+v, err=%v", updated.Project, err)
+	}
+	if len(fake.Applied) != 1 {
+		t.Fatalf("applied = %d, want 1 after direct->proxied", len(fake.Applied))
+	}
+	row, err := queries.GetRouteByProject(ctx, created.Project.ID)
+	if err != nil {
+		t.Fatalf("route row: %v", err)
+	}
+	if row.SyncStatus != "synced" || row.ProviderRouteID != fake.Applied[0].ProviderID {
+		t.Fatalf("route = %+v, applied = %+v", row, fake.Applied[0])
+	}
+
+	// Same-mode update must not provision a second route.
+	if _, err := service.Update(ctx, "switch-app", UpdateInput{
+		Name: "Switch App", InternIDs: []string{"i1"}, AccessMode: AccessModeProxied,
+	}); err != nil {
+		t.Fatalf("re-update: %v", err)
+	}
+	if len(fake.Applied) != 1 {
+		t.Fatalf("applied = %d, want 1 (no duplicate)", len(fake.Applied))
+	}
+
+	// Proxied->direct removes the route.
+	if _, err := service.Update(ctx, "switch-app", UpdateInput{
+		Name: "Switch App", InternIDs: []string{"i1"}, AccessMode: AccessModeDirect,
+	}); err != nil {
+		t.Fatalf("update back to direct: %v", err)
+	}
+	if len(fake.Removed) != 1 || fake.Removed[0] != row.ProviderRouteID {
+		t.Fatalf("removed = %+v, want [%s]", fake.Removed, row.ProviderRouteID)
+	}
+	if _, err := queries.GetRouteByProject(ctx, created.Project.ID); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("route row still exists: %v", err)
+	}
+}
+
 func TestDirectProjectURL(t *testing.T) {
 	svc := NewService(nil, nil, "http://10.243.1.20:8080/portd", "", nil, nil)
 	for _, test := range []struct {
